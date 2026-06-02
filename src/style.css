@@ -38,7 +38,8 @@ header.top{
   display:flex;align-items:flex-end;justify-content:space-between;gap:20px;
   flex-wrap:wrap;padding:30px 0 22px;border-bottom:1px solid var(--on-blue-line);
 }
-.brand{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand-logo{height:78px;width:auto;flex:none;border-radius:14px;box-shadow:0 8px 20px -10px rgba(0,0,0,.4)}
 .brand .kicker{
   font-family:'Azeret Mono',monospace;font-size:11px;letter-spacing:.28em;
   text-transform:uppercase;color:var(--orange);font-weight:700;

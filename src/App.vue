@@ -5,6 +5,7 @@ import GroupsView from './components/GroupsView.vue'
 import ScheduleView from './components/ScheduleView.vue'
 import BracketView from './components/BracketView.vue'
 import SettingsView from './components/SettingsView.vue'
+import logoUrl from './dj-logga.png'
 
 const { state, adminMode, enterAdmin, exitAdmin, exportData, importData } = useTournament()
 const view = ref('schedule')
@@ -68,6 +69,7 @@ const handlePinKey = (e) => {
 
   <header class="top">
     <div class="brand">
+      <img :src="logoUrl" class="brand-logo" alt="Cuplogotyp">
       <div>
         <div class="kicker">Turneringscentral</div>
         <h1 class="title">
