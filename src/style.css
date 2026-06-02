@@ -148,39 +148,40 @@ td.pts{font-weight:800;color:var(--orange);font-family:'Azeret Mono',monospace}
 .pen-label strong{color:var(--orange)}
 
 /* ---------- Schedule ---------- */
-.sched-group{margin-bottom:18px}
+.sched-group{margin-bottom:24px}
+.sched-group:last-child{margin-bottom:0}
 .sched-group h3{
-  font-family:'Azeret Mono',monospace;font-size:12px;letter-spacing:.16em;text-transform:uppercase;
-  color:var(--blue);margin:0 0 8px;font-weight:700;
+  font-family:'Azeret Mono',monospace;font-size:13px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--blue);margin:0 0 12px;font-weight:700;
 }
-.srow{
-  display:grid;grid-template-columns:1fr 78px 1fr;gap:10px;align-items:center;
-  padding:9px 12px;font-size:14px;
+.smatch{
+  display:grid;grid-template-columns:70px 1fr auto 1fr;align-items:center;gap:14px;
+  padding:12px 16px;border-radius:12px;background:#f5f7fb;border:1px solid var(--card-line);transition:.12s;
 }
-.srow:hover{background:#f5f7fb}
-.srow .sh{text-align:right;font-weight:600;color:var(--ink)}
-.srow .sa{text-align:left;font-weight:600;color:var(--ink)}
-.srow .res{text-align:center;font-family:'Azeret Mono',monospace;font-weight:700;font-size:15px;color:var(--navy)}
-.srow .res.unplayed{color:var(--muted2);font-weight:500;font-size:12px}
+.smatch + .smatch{margin-top:8px}
+.smatch:hover{border-color:#c7d2e6;background:#eef2f9}
+.smatch.adminrow{grid-template-columns:152px 1fr auto 1fr}
+.smatch-time{display:flex;flex-direction:column;gap:3px;min-width:0}
+.smatch-time .t{font-family:'Azeret Mono',monospace;font-weight:700;font-size:14px;color:var(--orange)}
+.smatch-time .t.empty{color:var(--muted2);font-weight:500}
+.smatch-time .v{font-size:10px;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.06em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.smatch .home{text-align:right;font-weight:600;font-size:16px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.smatch .away{text-align:left;font-weight:600;font-size:16px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.smatch .home.win,.smatch .away.win{color:var(--orange);font-weight:800}
+.score-pill{
+  font-family:'Azeret Mono',monospace;font-weight:800;font-size:18px;color:#fff;background:var(--navy);
+  border-radius:9px;padding:6px 15px;min-width:64px;text-align:center;letter-spacing:.02em;
+}
+.score-pill.vs{background:transparent;color:var(--muted2);font-weight:700;font-size:12px;border:1px dashed var(--card-line);padding:6px 12px}
 
-/* ---------- Schedule meta (tid & plan) ---------- */
-.srow-wrap{border-bottom:1px solid var(--card-line)}
-.srow-wrap:last-child{border-bottom:none}
-.srow-meta{display:flex;align-items:center;gap:8px;padding:6px 12px 0}
-.meta-time{
-  width:90px;background:#f5f7fb;border:1px solid var(--card-line);border-radius:7px;
-  padding:4px 8px;color:var(--muted);font-family:'Azeret Mono',monospace;font-size:12px;font-weight:600;outline:none;
+/* Admin – redigerbar tid & plan i vänsterkolumnen */
+.meta-time,.meta-venue{
+  width:100%;background:var(--white);border:1px solid var(--card-line);border-radius:7px;
+  padding:5px 8px;color:var(--ink);font-size:12px;font-weight:600;outline:none;
 }
-.meta-time:focus{border-color:var(--orange);color:var(--ink)}
-.meta-venue{
-  flex:1;max-width:180px;background:#f5f7fb;border:1px solid var(--card-line);border-radius:7px;
-  padding:4px 8px;color:var(--muted);font-family:'Hanken Grotesk';font-size:12px;font-weight:600;outline:none;
-}
-.meta-venue:focus{border-color:var(--orange);color:var(--ink)}
-.meta-display{display:flex;align-items:center;gap:6px;padding:3px 0 0}
-.meta-time-text{font-family:'Azeret Mono',monospace;font-size:12px;font-weight:700;color:var(--orange)}
-.meta-dot{color:var(--muted2);font-size:11px}
-.meta-venue-text{font-size:12px;color:var(--muted);font-weight:600}
+.meta-time{font-family:'Azeret Mono',monospace}
+.meta-venue{font-family:'Hanken Grotesk'}
+.meta-time:focus,.meta-venue:focus{border-color:var(--orange)}
 
 /* ---------- Bracket (tvåsidig stege) ---------- */
 .bracket2{display:flex;align-items:stretch;justify-content:safe center;overflow-x:auto;padding:6px 2px 10px;min-height:400px}
