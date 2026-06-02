@@ -181,29 +181,58 @@ td.pts{font-weight:800;color:var(--orange);font-family:'Azeret Mono',monospace}
 .meta-dot{color:var(--muted2);font-size:11px}
 .meta-venue-text{font-size:12px;color:var(--muted);font-weight:600}
 
-/* ---------- Bracket ---------- */
-.bracket{display:flex;gap:26px;overflow-x:auto;padding:6px 2px 18px}
-.round{display:flex;flex-direction:column;justify-content:space-around;gap:16px;min-width:230px}
+/* ---------- Bracket (tvåsidig stege) ---------- */
+.bracket2{display:flex;align-items:stretch;justify-content:safe center;overflow-x:auto;padding:6px 2px 10px;min-height:400px}
+.bcol{display:flex;flex-direction:column;min-width:172px;padding:0 16px}
+.bcol.center{min-width:188px}
 .round-title{
-  font-family:'Anton',sans-serif;text-transform:uppercase;letter-spacing:.05em;font-size:14px;
-  color:var(--muted);text-align:center;margin-bottom:2px;
+  font-family:'Anton',sans-serif;text-transform:uppercase;letter-spacing:.05em;font-size:13px;
+  color:var(--muted);text-align:center;height:18px;line-height:18px;margin-bottom:14px;flex:none;
 }
-.ko-match{background:#f5f7fb;border:1px solid var(--card-line);border-radius:10px;padding:6px}
-.ko-team{display:grid;grid-template-columns:1fr 40px;align-items:center;gap:6px;padding:5px 8px;border-radius:7px}
-.ko-team .nm{font-weight:600;font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.round-title.small{font-size:11px;height:auto;line-height:1.2;margin:0 0 10px}
+.pair{position:relative;flex:1;display:flex;flex-direction:column;justify-content:space-around}
+.single{position:relative;flex:1;display:flex;flex-direction:column;justify-content:center}
+
+.seed{background:#f5f7fb;border:1px solid var(--card-line);border-radius:10px;padding:6px;position:relative}
+
+/* Kopplingslinjer */
+.to-right .seed::after,
+.to-left .seed::after{content:'';position:absolute;top:50%;width:16px;height:2px;background:var(--card-line)}
+.to-right .seed::after{right:-16px}
+.to-left .seed::after{left:-16px}
+.pair.to-right::after,
+.pair.to-left::after{content:'';position:absolute;top:25%;bottom:25%;width:2px;background:var(--card-line)}
+.pair.to-right::after{right:-16px}
+.pair.to-left::after{left:-16px}
+
+/* Match-rad */
+.ko-team{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:7px}
+.ko-team .nm{flex:1;min-width:0;font-weight:600;font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ko-team .nm.tbd{color:var(--muted2);font-style:italic;font-weight:500}
 .ko-team.win .nm{color:var(--orange)}
+.ko-team input,.ko-score-ro{flex:none;width:40px;text-align:center;font-family:'Azeret Mono',monospace;font-weight:700;font-size:15px}
 .ko-team input{
-  width:40px;height:32px;text-align:center;font-family:'Azeret Mono',monospace;font-weight:700;font-size:15px;
-  background:var(--white);color:var(--navy);border:1px solid var(--card-line);border-radius:6px;outline:none;-moz-appearance:textfield;
+  height:32px;background:var(--white);color:var(--navy);border:1px solid var(--card-line);border-radius:6px;outline:none;-moz-appearance:textfield;
 }
 .ko-team input::-webkit-outer-spin-button,.ko-team input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .ko-team input:focus{border-color:var(--orange)}
-.ko-score-ro{font-family:'Azeret Mono',monospace;font-weight:700;font-size:15px;color:var(--navy);width:40px;text-align:center;display:inline-block}
+.ko-score-ro{color:var(--navy);display:inline-block}
 .ko-mid{height:1px;background:var(--card-line);margin:3px 6px}
+
+/* Speglad högersida – poäng inåt mot mitten */
+.seed.mirror .ko-team{flex-direction:row-reverse}
+.seed.mirror .ko-team .nm{text-align:right}
+
+/* Final framhävd */
+.final-seed .seed{border-color:var(--orange);box-shadow:0 0 0 3px rgba(226,113,15,.12)}
+
+/* Bronsmatch under stegen */
+.bronze-block{margin-top:20px;border-top:1px dashed var(--card-line);padding-top:16px}
+.bronze.single{flex:none;max-width:300px;margin:0 auto}
+
 .champion{
-  margin-top:14px;text-align:center;background:linear-gradient(180deg,rgba(226,113,15,.16),rgba(226,113,15,.04));
-  border:1px solid var(--orange);border-radius:12px;padding:18px;
+  margin-top:18px;text-align:center;background:linear-gradient(180deg,rgba(226,113,15,.16),rgba(226,113,15,.04));
+  border:1px solid var(--orange);border-radius:12px;padding:18px;max-width:360px;margin-left:auto;margin-right:auto;
 }
 .champion .lbl{font-family:'Azeret Mono',monospace;font-size:11px;letter-spacing:.2em;color:var(--orange);text-transform:uppercase}
 .champion .name{font-family:'Anton',sans-serif;font-size:30px;color:var(--navy);text-transform:uppercase;margin-top:4px}

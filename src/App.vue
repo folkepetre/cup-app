@@ -106,5 +106,5 @@ const handlePinKey = (e) => {
   <BracketView v-show="view === 'bracket'" />
   <SettingsView v-if="adminMode" v-show="view === 'settings'" />
 
-  <footer>Byggd med Vue 3 · resultaten sparas lokalt i din webbläsare</footer>
+  <footer></footer>
 </template>
