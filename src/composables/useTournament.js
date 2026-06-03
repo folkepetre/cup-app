@@ -109,7 +109,7 @@ export function defaultState () {
   const advancePerGroup = 2
   const Q = advancePerGroup * groups.length
   return {
-    name: 'Cupen 2026',
+    name: 'DJ Cup 2026',
     adminPin: '1234',
     advancePerGroup,
     groups,
