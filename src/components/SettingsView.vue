@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useTournament } from '../composables/useTournament'
 
-const { state, applyFormat, resetAll } = useTournament()
+const { state, applyFormat, resetAll, confirmDialog, alertDialog } = useTournament()
 
 // Format-utkast (tillämpas först när man trycker "Bygg om format")
 const draftCounts = ref(state.groups.map((g) => g.teams.length))
@@ -43,11 +43,18 @@ const resetDraft = () => {
   draftAdvance.value = state.advancePerGroup
 }
 
-const buildFormat = () => {
-  if (warnings.value.length) { alert('Rätta till först:\n\n• ' + warnings.value.join('\n• ')); return }
-  if (confirm('Bygga om formatet? Alla resultat nollställs, och lagnamn återställs i grupper som ändrar storlek.')) {
-    applyFormat([...draftCounts.value], draftAdvance.value)
+const buildFormat = async () => {
+  if (warnings.value.length) {
+    await alertDialog({ title: 'Rätta till först', message: warnings.value.join(' ') })
+    return
   }
+  const ok = await confirmDialog({
+    title: 'Bygga om formatet?',
+    message: 'Alla resultat nollställs, och lagnamn återställs i grupper som ändrar storlek.',
+    confirmText: 'Bygg om',
+    danger: true
+  })
+  if (ok) applyFormat([...draftCounts.value], draftAdvance.value)
 }
 </script>
 

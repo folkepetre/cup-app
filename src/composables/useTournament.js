@@ -156,6 +156,39 @@ const enterAdmin = (pin) => {
 }
 const exitAdmin = () => { adminMode.value = false }
 
+// ---- Global bekräftelse-/varningsdialog (ersätter native alert/confirm) ----
+const dialog = reactive({
+  open: false,
+  title: '',
+  message: '',
+  confirmText: 'OK',
+  cancelText: 'Avbryt',
+  danger: false,
+  showCancel: true,
+  _resolve: null
+})
+
+function openDialog (opts) {
+  return new Promise((resolve) => {
+    dialog.title = opts.title || ''
+    dialog.message = opts.message || ''
+    dialog.confirmText = opts.confirmText || 'OK'
+    dialog.cancelText = opts.cancelText || 'Avbryt'
+    dialog.danger = !!opts.danger
+    dialog.showCancel = opts.showCancel !== false
+    dialog._resolve = resolve
+    dialog.open = true
+  })
+}
+function resolveDialog (val) {
+  dialog.open = false
+  const r = dialog._resolve
+  dialog._resolve = null
+  if (r) r(val)
+}
+const confirmDialog = (opts) => openDialog({ ...opts, showCancel: true })
+const alertDialog = (opts) => openDialog({ ...opts, showCancel: false })
+
 // ---- Molnsynk (Supabase) ----
 // syncStatus: 'local' (ingen databas), 'connecting', 'synced', 'error'
 const syncStatus = ref(supabaseEnabled ? 'connecting' : 'local')
@@ -399,23 +432,28 @@ const importData = (e) => {
     try {
       Object.assign(state, migrate(JSON.parse(reader.result)))
     } catch (err) {
-      alert('Kunde inte läsa filen – är det rätt JSON-fil?')
+      alertDialog({ title: 'Kunde inte läsa filen', message: 'Är det rätt JSON-fil som exporterats från appen?' })
     }
   }
   reader.readAsText(file)
   e.target.value = ''
 }
 
-const resetAll = () => {
-  if (confirm('Nollställa allt? Alla resultat och lagnamn återställs.')) {
-    Object.assign(state, defaultState())
-  }
+const resetAll = async () => {
+  const ok = await confirmDialog({
+    title: 'Nollställa allt?',
+    message: 'Alla resultat rensas och standardformatet (4 grupper × 4 lag) återställs. Detta går inte att ångra.',
+    confirmText: 'Nollställ',
+    danger: true
+  })
+  if (ok) Object.assign(state, defaultState())
 }
 
 export function useTournament () {
   return {
     state,
     adminMode, enterAdmin, exitAdmin,
+    dialog, resolveDialog, confirmDialog, alertDialog,
     syncStatus, supabaseEnabled,
     groupRes, matchTime, isPlayed, fixtures, resultWinner, needsPen, setPen,
     standings, qualifiers,

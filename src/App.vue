@@ -7,7 +7,7 @@ import BracketView from './components/BracketView.vue'
 import SettingsView from './components/SettingsView.vue'
 import logoUrl from './dj-logga.png'
 
-const { state, adminMode, enterAdmin, exitAdmin, exportData, importData, syncStatus, supabaseEnabled } = useTournament()
+const { state, adminMode, enterAdmin, exitAdmin, exportData, importData, syncStatus, supabaseEnabled, dialog, resolveDialog } = useTournament()
 const view = ref('schedule')
 
 const syncLabel = {
@@ -53,6 +53,18 @@ const handlePinKey = (e) => {
 </script>
 
 <template>
+  <!-- Bekräftelse-/varningsdialog -->
+  <div v-if="dialog.open" class="pin-overlay" @click.self="resolveDialog(false)">
+    <div class="pin-modal confirm-modal">
+      <div class="pin-title">{{ dialog.title }}</div>
+      <p class="confirm-msg">{{ dialog.message }}</p>
+      <div class="pin-actions">
+        <button v-if="dialog.showCancel" class="btn ghost" @click="resolveDialog(false)">{{ dialog.cancelText }}</button>
+        <button class="btn" :class="dialog.danger ? 'danger' : 'solid'" @click="resolveDialog(true)">{{ dialog.confirmText }}</button>
+      </div>
+    </div>
+  </div>
+
   <!-- PIN-dialog overlay -->
   <div v-if="showPinDialog" class="pin-overlay" @click.self="cancelPin">
     <div class="pin-modal">
