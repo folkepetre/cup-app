@@ -37,7 +37,7 @@ const { state, standings, fixtures, groupRes, resultWinner, adminMode } = useTou
         </table>
         <div class="qual-note"><span class="dot"></span> Topp {{ state.advancePerGroup }} går till slutspel</div>
 
-        <div class="matches">
+        <div class="matches" v-if="adminMode">
           <div class="match" v-for="(m, mi) in fixtures(g)" :key="mi">
             <div class="home">
               <span class="mteam" :class="{ winner: resultWinner(groupRes(g.id, mi), m) === m.h }">{{ m.h }}</span>
