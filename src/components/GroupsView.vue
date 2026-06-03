@@ -8,10 +8,10 @@ const { state, standings, fixtures, groupRes, resultWinner, adminMode } = useTou
   <div>
     <p class="section-intro" v-if="adminMode">
       Mata in målen för varje match nedan. Tabellen räknas ut automatiskt — poäng, målskillnad
-      och placering uppdateras direkt. De två översta i varje grupp går vidare till slutspelet.
+      och placering uppdateras direkt. De {{ state.advancePerGroup }} översta i varje grupp går vidare till slutspelet.
     </p>
     <p class="section-intro" v-else>
-      Grupptabellerna uppdateras i realtid. De två översta i varje grupp (markerade) går vidare till slutspelet.
+      Grupptabellerna uppdateras i realtid. De {{ state.advancePerGroup }} översta i varje grupp (markerade) går vidare till slutspelet.
     </p>
     <div class="grid cols2">
       <div class="card" v-for="g in state.groups" :key="g.id">
@@ -25,7 +25,7 @@ const { state, standings, fixtures, groupRes, resultWinner, adminMode } = useTou
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(row, i) in standings(g)" :key="row.name" :class="{ qual: i < 2 }">
+            <tr v-for="(row, i) in standings(g)" :key="row.name" :class="{ qual: i < state.advancePerGroup }">
               <td class="pos">{{ i + 1 }}</td>
               <td class="tn team-name">{{ row.name }}</td>
               <td>{{ row.p }}</td><td>{{ row.w }}</td><td>{{ row.d }}</td><td>{{ row.l }}</td>
@@ -35,7 +35,7 @@ const { state, standings, fixtures, groupRes, resultWinner, adminMode } = useTou
             </tr>
           </tbody>
         </table>
-        <div class="qual-note"><span class="dot"></span> Topp 2 går till slutspel</div>
+        <div class="qual-note"><span class="dot"></span> Topp {{ state.advancePerGroup }} går till slutspel</div>
 
         <div class="matches">
           <div class="match" v-for="(m, mi) in fixtures(g)" :key="mi">

@@ -198,20 +198,17 @@ td.pts{font-weight:800;color:var(--orange);font-family:'Azeret Mono',monospace}
   color:var(--muted);text-align:center;height:18px;line-height:18px;margin-bottom:14px;flex:none;
 }
 .round-title.small{font-size:11px;height:auto;line-height:1.2;margin:0 0 10px}
-.pair{position:relative;flex:1;display:flex;flex-direction:column;justify-content:space-around}
-.single{position:relative;flex:1;display:flex;flex-direction:column;justify-content:center}
+.rcol{position:relative;flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:12px}
+.rcol.final-seed,.rcol.bronze{justify-content:center}
 
 .seed{background:#f5f7fb;border:1px solid var(--card-line);border-radius:10px;padding:6px;position:relative}
+.seed.bye{opacity:.7}
 
-/* Kopplingslinjer */
+/* Kopplingslinjer (horisontell stump per match) */
 .to-right .seed::after,
 .to-left .seed::after{content:'';position:absolute;top:50%;width:16px;height:2px;background:var(--card-line)}
 .to-right .seed::after{right:-16px}
 .to-left .seed::after{left:-16px}
-.pair.to-right::after,
-.pair.to-left::after{content:'';position:absolute;top:25%;bottom:25%;width:2px;background:var(--card-line)}
-.pair.to-right::after{right:-16px}
-.pair.to-left::after{left:-16px}
 
 /* Match-rad */
 .ko-team{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:7px}
@@ -236,7 +233,7 @@ td.pts{font-weight:800;color:var(--orange);font-family:'Azeret Mono',monospace}
 
 /* Bronsmatch under stegen */
 .bronze-block{margin-top:20px;border-top:1px dashed var(--card-line);padding-top:16px}
-.bronze.single{flex:none;max-width:300px;margin:0 auto}
+.rcol.bronze{flex:none;max-width:300px;margin:0 auto}
 
 .champion{
   margin-top:18px;text-align:center;background:linear-gradient(180deg,rgba(226,113,15,.16),rgba(226,113,15,.04));
@@ -261,6 +258,27 @@ td.pts{font-weight:800;color:var(--orange);font-family:'Azeret Mono',monospace}
   color:var(--ink);font-family:'Hanken Grotesk';font-size:14px;font-weight:600;outline:none;
 }
 .team-edit input:focus{border-color:var(--orange)}
+
+/* ---------- Formatredigerare ---------- */
+.fmt-advance{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:14px 0 6px}
+.fmt-advance label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:700;font-family:'Azeret Mono',monospace}
+.stepper{display:inline-flex;align-items:center;gap:4px;background:#f5f7fb;border:1px solid var(--card-line);border-radius:10px;padding:4px}
+.stepper .btn.ghost{min-width:34px;padding:6px 0;text-align:center;font-size:18px;line-height:1;font-weight:700}
+.stepper-val{min-width:34px;text-align:center;font-family:'Azeret Mono',monospace;font-weight:800;font-size:17px;color:var(--navy)}
+.fmt-groups{display:flex;flex-wrap:wrap;gap:12px;margin:16px 0}
+.fmt-group{background:#f5f7fb;border:1px solid var(--card-line);border-radius:12px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:118px}
+.fmt-group-head{display:flex;align-items:center;gap:8px}
+.fmt-group-head .x{border:none;background:transparent;color:var(--muted2);cursor:pointer;font-size:13px;padding:2px 4px;border-radius:6px}
+.fmt-group-head .x:hover{color:#d33;background:rgba(211,51,51,.1)}
+.fmt-group-sub{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted2);font-weight:700}
+.fmt-add{align-self:stretch;min-width:118px;background:transparent;border:1.5px dashed var(--card-line);border-radius:12px;color:var(--blue);font-weight:700;font-size:13px;cursor:pointer;padding:12px}
+.fmt-add:hover{border-color:var(--blue);background:rgba(54,88,159,.05)}
+.fmt-summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--navy);color:#fff;border-radius:10px;padding:12px 16px;font-size:14px;margin-top:6px}
+.fmt-summary strong{font-family:'Azeret Mono',monospace;font-size:16px;color:var(--orange-light, #ffb066)}
+.fmt-summary .arrow{color:var(--muted2)}
+.fmt-warn{margin-top:10px;background:rgba(226,113,15,.1);border:1px solid var(--orange);color:var(--orange-2);border-radius:9px;padding:9px 12px;font-size:13px;font-weight:600}
+.fmt-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px}
+.btn.solid:disabled{opacity:.45;cursor:not-allowed}
 .hint{font-size:12px;color:var(--muted2);margin-top:6px}
 .filehidden{display:none}
 footer{margin-top:40px;text-align:center;color:var(--on-blue-muted);font-size:12px;font-family:'Azeret Mono',monospace;letter-spacing:.05em}
