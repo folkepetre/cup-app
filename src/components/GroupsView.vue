@@ -8,7 +8,7 @@ const { state, standings, fixtures, groupRes, resultWinner, adminMode } = useTou
   <div>
     <p class="section-intro" v-if="adminMode">
       Mata in målen för varje match nedan. Tabellen räknas ut automatiskt — poäng, målskillnad
-      och placering uppdateras direkt. De {{ state.advancePerGroup }} översta i varje grupp går vidare till slutspelet.
+      och placering uppdateras direkt.
     </p>
     <p class="section-intro" v-else>
       Grupptabellerna uppdateras i realtid. De {{ state.advancePerGroup }} översta i varje grupp (markerade) går vidare till slutspelet.
