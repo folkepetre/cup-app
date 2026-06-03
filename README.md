@@ -1,8 +1,7 @@
 # Fotbollscup ⚽
 
-En enkel turneringssajt för en cup med 16 lag: 4 grupper à 4 lag, autoberäknad
-tabell, spelschema och slutspelsträd. Byggd med Vue 3 + Vite. Resultaten sparas
-lokalt i webbläsaren.
+En enkel turneringssajt för en cup med autoberäknad
+tabell, spelschema och slutspelsträd. Byggd med Vue 3 + Vite. 
 
 ## Kom igång
 
