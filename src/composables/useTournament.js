@@ -1,4 +1,5 @@
-import { reactive, computed, watch, ref } from 'vue'
+import { reactive, computed, watch, ref, nextTick } from 'vue'
+import { supabase, supabaseEnabled, ROW_ID, TABLE } from '../supabase'
 
 const STORAGE_KEY = 'fotbollscup-v1'
 
@@ -61,8 +62,73 @@ function load () {
 
 const state = reactive(load())
 
+// ---- Molnsynk (Supabase) ----
+// syncStatus: 'local' (ingen databas), 'connecting', 'synced', 'error'
+const syncStatus = ref(supabaseEnabled ? 'connecting' : 'local')
+let applyingRemote = false   // sant medan vi skriver in data från molnet (förhindrar eko-loop)
+let saveTimer = null
+
+const plainState = () => JSON.parse(JSON.stringify(state))
+
+async function pullFromCloud () {
+  if (!supabaseEnabled) return
+  try {
+    const { data, error } = await supabase
+      .from(TABLE).select('data').eq('id', ROW_ID).maybeSingle()
+    if (error) { syncStatus.value = 'error'; return }
+    if (data && data.data) {
+      applyingRemote = true
+      Object.assign(state, migrate(data.data))
+      await nextTick()
+      applyingRemote = false
+    }
+    syncStatus.value = 'synced'
+  } catch (e) { syncStatus.value = 'error' }
+}
+
+async function pushToCloud () {
+  if (!supabaseEnabled) return
+  try {
+    const { error } = await supabase.from(TABLE).upsert({
+      id: ROW_ID,
+      data: plainState(),
+      updated_at: new Date().toISOString()
+    })
+    syncStatus.value = error ? 'error' : 'synced'
+  } catch (e) { syncStatus.value = 'error' }
+}
+
+function subscribeRealtime () {
+  if (!supabaseEnabled) return
+  supabase
+    .channel('tournament-sync')
+    .on('postgres_changes',
+      { event: '*', schema: 'public', table: TABLE, filter: `id=eq.${ROW_ID}` },
+      async (payload) => {
+        const incoming = payload.new && payload.new.data
+        if (!incoming) return
+        applyingRemote = true
+        Object.assign(state, migrate(incoming))
+        await nextTick()
+        applyingRemote = false
+        syncStatus.value = 'synced'
+      })
+    .subscribe()
+}
+
+if (supabaseEnabled) {
+  pullFromCloud().then(subscribeRealtime)
+}
+
 watch(state, () => {
+  // Lokal cache alltid
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)) } catch (e) {}
+  // Skriv till molnet endast som admin, och inte när ändringen kom FRÅN molnet
+  if (supabaseEnabled && adminMode.value && !applyingRemote) {
+    syncStatus.value = 'connecting'
+    clearTimeout(saveTimer)
+    saveTimer = setTimeout(pushToCloud, 400)
+  }
 }, { deep: true })
 
 // Admin mode — lives only in memory, resets on page reload
@@ -203,6 +269,7 @@ export function useTournament () {
   return {
     state,
     adminMode, enterAdmin, exitAdmin,
+    syncStatus, supabaseEnabled,
     groupRes, matchTime, isPlayed, fixtures, resultWinner, needsPen, setPen,
     standings,
     qf, sf, finalM, thirdM, champion, scheduleKnockout,

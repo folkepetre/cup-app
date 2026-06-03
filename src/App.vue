@@ -7,8 +7,15 @@ import BracketView from './components/BracketView.vue'
 import SettingsView from './components/SettingsView.vue'
 import logoUrl from './dj-logga.png'
 
-const { state, adminMode, enterAdmin, exitAdmin, exportData, importData } = useTournament()
+const { state, adminMode, enterAdmin, exitAdmin, exportData, importData, syncStatus, supabaseEnabled } = useTournament()
 const view = ref('schedule')
+
+const syncLabel = {
+  local: 'Lokalt läge',
+  connecting: 'Synkar…',
+  synced: 'Live',
+  error: 'Synkfel'
+}
 const fileInput = ref(null)
 
 const showPinDialog = ref(false)
@@ -81,6 +88,9 @@ const handlePinKey = (e) => {
       </div>
     </div>
     <div class="tools">
+      <span v-if="supabaseEnabled" class="sync-pill" :class="syncStatus" :title="syncLabel[syncStatus]">
+        <span class="sync-dot"></span>{{ syncLabel[syncStatus] }}
+      </span>
       <template v-if="adminMode">
         <button class="btn ghost" @click="exportData">↧ Exportera</button>
         <button class="btn ghost" @click="fileInput.click()">↥ Importera</button>

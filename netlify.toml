@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA-fallback så att direkt-länkar fungerar
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
