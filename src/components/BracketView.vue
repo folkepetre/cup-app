@@ -1,11 +1,15 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useTournament } from '../composables/useTournament'
 import KoSeed from './KoSeed.vue'
 
-const { bracket, champion, thirdMatch, adminMode, koRoundLabel } = useTournament()
+const { brackets, adminMode, koRoundLabel } = useTournament()
 
-const rounds = computed(() => bracket.value.rounds)
+const active = ref(0)
+const current = computed(() => brackets.value[Math.min(active.value, brackets.value.length - 1)] || null)
+const multi = computed(() => brackets.value.length > 1)
+
+const rounds = computed(() => (current.value ? current.value.rounds : []))
 const lastIndex = computed(() => rounds.value.length - 1)
 const finalMatch = computed(() => (rounds.value.length ? rounds.value[lastIndex.value][0] : null))
 
@@ -32,17 +36,26 @@ const rightColumns = computed(() => {
 <template>
   <div>
     <p class="section-intro" v-if="adminMode">
-      Slutspelsträdet fylls i automatiskt utifrån grupptabellerna. Mata in resultat så flyttas
+      Slutspelsträden fylls i automatiskt utifrån grupptabellerna. Mata in resultat så flyttas
       vinnaren vidare av sig själv. Vid oavgjort: välj vem som gick vidare på straffar.
       Lag med bye går vidare direkt.
     </p>
     <p class="section-intro" v-else>
-      Slutspelsträdet uppdateras automatiskt när resultaten matas in.
+      Slutspelsträden uppdateras automatiskt när resultaten matas in.
     </p>
 
-    <div class="card">
+    <!-- Flikar när det finns flera slutspel (A/B/C…) -->
+    <div class="tier-tabs" v-if="multi">
+      <button
+        v-for="(b, i) in brackets" :key="b.id"
+        :class="{ active: i === active }"
+        @click="active = i">
+        {{ b.name }}
+      </button>
+    </div>
+
+    <div class="card" v-if="current">
       <div class="bracket2" v-if="rounds.length">
-        <!-- Vänstersida -->
         <div class="bcol" v-for="col in leftColumns" :key="'L' + col.round">
           <div class="round-title">{{ koRoundLabel(col.fromEnd) }}</div>
           <div class="rcol to-right">
@@ -50,7 +63,6 @@ const rightColumns = computed(() => {
           </div>
         </div>
 
-        <!-- Mitten: final -->
         <div class="bcol center">
           <div class="round-title">Final</div>
           <div class="rcol final-seed">
@@ -58,7 +70,6 @@ const rightColumns = computed(() => {
           </div>
         </div>
 
-        <!-- Högersida (speglad) -->
         <div class="bcol" v-for="col in rightColumns" :key="'R' + col.round">
           <div class="round-title">{{ koRoundLabel(col.fromEnd) }}</div>
           <div class="rcol to-left">
@@ -66,19 +77,23 @@ const rightColumns = computed(() => {
           </div>
         </div>
       </div>
-      <p v-else class="hint">Slutspelsträdet visas när minst två lag kvalificerat sig.</p>
+      <p v-else class="hint">Det här slutspelet visas när minst två lag kvalificerat sig.</p>
 
-      <div class="champion" v-if="champion">
-        <div class="lbl">🏆 Cupmästare</div>
-        <div class="name">{{ champion }}</div>
+      <div class="champion" v-if="current.champion">
+        <div class="lbl">🏆 {{ multi ? current.name + ' – vinnare' : 'Cupmästare' }}</div>
+        <div class="name">{{ current.champion }}</div>
       </div>
 
-      <div class="bronze-block" v-if="thirdMatch">
+      <div class="bronze-block" v-if="current.third">
         <div class="round-title small">Bronsmatch</div>
         <div class="rcol bronze">
-          <KoSeed :res="thirdMatch.res" :match="thirdMatch" />
+          <KoSeed :res="current.third.res" :match="current.third" />
         </div>
       </div>
+    </div>
+
+    <div class="card" v-else>
+      <p class="hint">Inget slutspel är konfigurerat ännu.</p>
     </div>
   </div>
 </template>

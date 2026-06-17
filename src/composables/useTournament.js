@@ -59,6 +59,21 @@ function buildKoStructure (Q) {
   return { rounds, third: blank() }
 }
 
+// Bygg ett slutspels-objekt per tier (A, B, C…) utifrån banden
+function buildAllKo (bands, numGroups) {
+  const ko = {}
+  bands.forEach((size, i) => {
+    ko[groupLetter(i)] = buildKoStructure(size * numGroups)
+  })
+  return ko
+}
+
+// Normalisera band-listan (minst ett band, heltal ≥ 1)
+function cleanBands (bands, fallback) {
+  if (Array.isArray(bands) && bands.length) return bands.map((n) => Math.max(1, n | 0))
+  return [Math.max(1, (fallback || 2) | 0)]
+}
+
 function structureMatches (ko, Q) {
   if (!ko || !Array.isArray(ko.rounds)) return false
   const exp = expectedRoundSizes(Q)
@@ -91,50 +106,66 @@ function defaultGroupResults (groups) {
   return r
 }
 
-function defaultMatchTimes (groups, Q) {
+function defaultMatchTimes (groups, bands) {
   const t = {}
   for (const g of groups) {
     const mc = roundRobin(g.teams.length).length
     for (let i = 0; i < mc; i++) t[`${g.id}-${i}`] = blankTime()
   }
-  expectedRoundSizes(Q).forEach((sz, r) => {
-    for (let m = 0; m < sz; m++) t[`R${r}-${m}`] = blankTime()
+  bands.forEach((size, i) => {
+    const id = groupLetter(i)
+    expectedRoundSizes(size * groups.length).forEach((sz, r) => {
+      for (let m = 0; m < sz; m++) t[`${id}-R${r}-${m}`] = blankTime()
+    })
+    t[`${id}-TP`] = blankTime()
   })
-  t.TP = blankTime()
   return t
 }
 
 export function defaultState () {
   const groups = buildGroups([4, 4, 4, 4])
-  const advancePerGroup = 2
-  const Q = advancePerGroup * groups.length
+  const playoffBands = [2]
   return {
     name: 'DJ Cup 2026',
     adminPin: '1234',
-    advancePerGroup,
+    playoffBands,
+    advancePerGroup: playoffBands.reduce((a, b) => a + b, 0),
     groups,
     groupResults: defaultGroupResults(groups),
-    matchTimes: defaultMatchTimes(groups, Q),
-    ko: buildKoStructure(Q)
+    matchTimes: defaultMatchTimes(groups, playoffBands),
+    ko: buildAllKo(playoffBands, groups.length)
   }
 }
 
 function migrate (s) {
   const d = defaultState()
   const groups = Array.isArray(s.groups) && s.groups.length ? s.groups : d.groups
-  const advancePerGroup = s.advancePerGroup || 2
-  const Q = advancePerGroup * groups.length
-  const out = {
+  const bands = cleanBands(s.playoffBands, s.advancePerGroup)
+  // Bygg slutspel per tier; återanvänd befintliga resultat där strukturen stämmer
+  const ko = {}
+  bands.forEach((size, i) => {
+    const id = groupLetter(i)
+    const Q = size * groups.length
+    const existing = s.ko && s.ko[id]
+    if (existing && structureMatches(existing, Q)) {
+      ko[id] = existing
+    } else if (i === 0 && s.ko && Array.isArray(s.ko.rounds) && structureMatches(s.ko, Q)) {
+      ko[id] = s.ko // migrera gammalt enkel-slutspel till tier A
+    } else {
+      ko[id] = buildKoStructure(Q)
+    }
+    if (!ko[id].third) ko[id].third = blank()
+  })
+  return {
     name: s.name ?? d.name,
     adminPin: s.adminPin ?? d.adminPin,
-    advancePerGroup,
+    playoffBands: bands,
+    advancePerGroup: bands.reduce((a, b) => a + b, 0),
     groups,
     groupResults: Object.assign(defaultGroupResults(groups), s.groupResults || {}),
-    matchTimes: Object.assign(defaultMatchTimes(groups, Q), s.matchTimes || {}),
-    ko: (s.ko && structureMatches(s.ko, Q)) ? s.ko : buildKoStructure(Q)
+    matchTimes: Object.assign(defaultMatchTimes(groups, bands), s.matchTimes || {}),
+    ko
   }
-  if (!out.ko.third) out.ko.third = blank()
-  return out
 }
 
 function load () {
@@ -302,31 +333,41 @@ const standings = (g) => {
     .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.name.localeCompare(b.name, 'sv'))
 }
 
-// Kvalade lag, rankade över grupperna: placering → pts → gd → gf
-const qualifiers = computed(() => {
-  const adv = state.advancePerGroup
-  const buckets = Array.from({ length: adv }, () => [])
-  for (const g of state.groups) {
-    const st = standings(g)
-    for (let pos = 0; pos < adv; pos++) {
-      const team = st[pos]
-      buckets[pos].push(team ? { ...team } : { name: '—', pts: -1, gd: 0, gf: 0 })
-    }
-  }
-  const result = []
-  for (let pos = 0; pos < adv; pos++) {
-    buckets[pos].sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.name.localeCompare(b.name, 'sv'))
-    for (const t of buckets[pos]) result.push(t.name)
-  }
-  return result
+// Slutspels-nivåer (tiers) härledda ur banden: t.ex. [2,2] → A (plats 1-2), B (plats 3-4)
+const tiers = computed(() => {
+  const bands = (state.playoffBands && state.playoffBands.length) ? state.playoffBands : [state.advancePerGroup || 2]
+  const out = []
+  let lo = 0
+  bands.forEach((size, i) => {
+    const id = groupLetter(i)
+    out.push({ id, name: `${id}-slutspel`, size, lo, hi: lo + size - 1, count: size * state.groups.length })
+    lo += size
+  })
+  return out
 })
 
-// Hela slutspelsträdet, beräknat från kvalrankning + inmatade resultat
-const bracket = computed(() => {
-  const qs = qualifiers.value
-  const Q = qs.length
+const byRank = (a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.name.localeCompare(b.name, 'sv')
+
+// Lag till ett visst slutspel: placeringarna lo..hi i varje grupp, rankade över grupperna
+function tierQualifiers (lo, hi) {
+  const result = []
+  for (let pos = lo; pos <= hi; pos++) {
+    const bucket = []
+    for (const g of state.groups) {
+      const team = standings(g)[pos]
+      bucket.push(team ? { ...team } : { name: '—', pts: -1, gd: 0, gf: 0 })
+    }
+    bucket.sort(byRank)
+    for (const t of bucket) result.push(t.name)
+  }
+  return result
+}
+
+// Bygg ett slutspelsträd (ronder) från en lag-lista + sparade resultat
+function buildBracketRounds (qs, koTier, tierId) {
   const rounds = []
-  if (Q < 2) return { rounds }
+  const Q = qs.length
+  if (Q < 2) return rounds
   const B = nextPow2(Q)
   const order = seedOrder(B)
   const seedTeam = (seedNum) => (seedNum > Q ? null : qs[seedNum - 1])
@@ -344,73 +385,69 @@ const bracket = computed(() => {
         home = prevWinners[2 * m]
         away = prevWinners[2 * m + 1]
       }
-      const res = (state.ko.rounds[r] && state.ko.rounds[r][m]) || blank()
-      // Bye finns bara i första ronden (tom plats pga trädstorlek). I senare ronder
-      // betyder null "ej avgjord ännu" (TBD), inte bye.
+      const res = (koTier.rounds[r] && koTier.rounds[r][m]) || blank()
       const isBye = r === 0 && (home === null || away === null)
-      let winner
-      if (isBye) winner = home ?? away
-      else winner = resultWinner(res, { home, away })
-      round.push({ home, away, res, isBye, winner, timeKey: `R${r}-${m}` })
+      const winner = isBye ? (home ?? away) : resultWinner(res, { home, away })
+      round.push({ home, away, res, isBye, winner, timeKey: `${tierId}-R${r}-${m}` })
     }
     rounds.push(round)
     prevWinners = round.map((x) => x.winner)
   }
-  return { rounds }
-})
+  return rounds
+}
 
-const champion = computed(() => {
-  const b = bracket.value.rounds
-  if (!b.length) return null
-  return b[b.length - 1][0].winner
-})
+// Alla slutspel (ett per tier), med träd, mästare och bronsmatch
+const brackets = computed(() => tiers.value.map((t) => {
+  const qs = tierQualifiers(t.lo, t.hi)
+  const koTier = (state.ko && state.ko[t.id]) || { rounds: [], third: blank() }
+  const rounds = buildBracketRounds(qs, koTier, t.id)
+  const champion = rounds.length ? rounds[rounds.length - 1][0].winner : null
+  let third = null
+  if (rounds.length >= 2) {
+    const semis = rounds[rounds.length - 2]
+    if (semis.length === 2) {
+      const loser = (mt) => (mt.winner ? (mt.winner === mt.home ? mt.away : mt.home) : null)
+      const home = loser(semis[0]); const away = loser(semis[1])
+      const res = koTier.third || blank()
+      third = { home, away, res, winner: resultWinner(res, { home, away }), isBye: false, timeKey: `${t.id}-TP` }
+    }
+  }
+  return { id: t.id, name: t.name, rounds, champion, third }
+}))
 
-const thirdMatch = computed(() => {
-  const b = bracket.value.rounds
-  if (b.length < 2) return null
-  const semis = b[b.length - 2]
-  if (semis.length !== 2) return null
-  const loser = (mt) => (mt.winner ? (mt.winner === mt.home ? mt.away : mt.home) : null)
-  const home = loser(semis[0])
-  const away = loser(semis[1])
-  const res = state.ko.third
-  return { home, away, res, winner: resultWinner(res, { home, away }), isBye: false, timeKey: 'TP' }
-})
-
-const scheduleKnockout = computed(() => {
-  const b = bracket.value.rounds
-  const out = []
-  b.forEach((round, r) => {
-    const fromEnd = b.length - 1 - r
+// Spelschema för slutspelet, grupperat per tier
+const scheduleKnockout = computed(() => brackets.value.map((bt) => {
+  const rounds = []
+  bt.rounds.forEach((round, r) => {
+    const fromEnd = bt.rounds.length - 1 - r
     const base = KO_NAMES[fromEnd]
     const label = base ? (fromEnd === 0 ? base : base + 'er') : `Omgång ${r + 1}`
     const matches = round
       .filter((mt) => !mt.isBye)
       .map((mt) => ({ home: mt.home, away: mt.away, res: mt.res, timeKey: mt.timeKey }))
-    if (matches.length) out.push({ label, matches })
+    if (matches.length) rounds.push({ label, matches })
   })
-  const tm = thirdMatch.value
-  if (tm && tm.home && tm.away) {
-    out.splice(Math.max(out.length - 1, 0), 0, {
+  if (bt.third && bt.third.home && bt.third.away) {
+    rounds.splice(Math.max(rounds.length - 1, 0), 0, {
       label: 'Bronsmatch',
-      matches: [{ home: tm.home, away: tm.away, res: state.ko.third, timeKey: 'TP' }]
+      matches: [{ home: bt.third.home, away: bt.third.away, res: bt.third.res, timeKey: bt.third.timeKey }]
     })
   }
-  return out
-})
+  return { id: bt.id, tier: bt.name, rounds }
+}).filter((t) => t.rounds.length))
 
 // ---- Format-ändring (admin) ----
 function rebuildStructure () {
-  const Q = state.advancePerGroup * state.groups.length
   state.groupResults = defaultGroupResults(state.groups)
-  state.matchTimes = defaultMatchTimes(state.groups, Q)
-  state.ko = buildKoStructure(Q)
+  state.matchTimes = defaultMatchTimes(state.groups, state.playoffBands)
+  state.ko = buildAllKo(state.playoffBands, state.groups.length)
 }
 
-// counts: array med antal lag per grupp; advance: antal vidare per grupp
-function applyFormat (counts, advance) {
+// counts: array med antal lag per grupp; bands: array med antal placeringar per slutspel
+function applyFormat (counts, bands) {
   state.groups = buildGroups(counts, state.groups)
-  state.advancePerGroup = Math.max(1, advance | 0)
+  state.playoffBands = cleanBands(bands)
+  state.advancePerGroup = state.playoffBands.reduce((a, b) => a + b, 0)
   rebuildStructure()
 }
 
@@ -456,8 +493,8 @@ export function useTournament () {
     dialog, resolveDialog, confirmDialog, alertDialog,
     syncStatus, supabaseEnabled,
     groupRes, matchTime, isPlayed, fixtures, resultWinner, needsPen, setPen,
-    standings, qualifiers,
-    bracket, champion, thirdMatch, scheduleKnockout, koRoundLabel,
+    standings, tiers,
+    brackets, scheduleKnockout, koRoundLabel,
     applyFormat,
     exportData, importData, resetAll
   }

@@ -36,12 +36,14 @@ const { state, fixtures, groupRes, isPlayed, scheduleKnockout, matchTime, result
       </div>
     </div>
 
-    <div class="card" style="margin-top:18px">
+    <div class="card" style="margin-top:18px" v-if="scheduleKnockout.length">
       <h2>Slutspel</h2>
-      <div class="sched-group" v-for="r in scheduleKnockout" :key="r.label">
-        <h3>{{ r.label }}</h3>
-        <div class="smatch" :class="{ adminrow: adminMode }" v-for="(m, mi) in r.matches" :key="mi">
-          <div class="smatch-time">
+      <div class="sched-tier" v-for="t in scheduleKnockout" :key="t.id">
+        <h3 class="tier-head" v-if="scheduleKnockout.length > 1">{{ t.tier }}</h3>
+        <div class="sched-group" v-for="r in t.rounds" :key="r.label">
+          <h3>{{ r.label }}</h3>
+          <div class="smatch" :class="{ adminrow: adminMode }" v-for="(m, mi) in r.matches" :key="mi">
+            <div class="smatch-time">
             <template v-if="adminMode">
               <input class="meta-time" type="time" v-model="matchTime(m.timeKey).time">
               <input class="meta-venue" type="text" v-model="matchTime(m.timeKey).venue" placeholder="Plan…">
@@ -57,6 +59,7 @@ const { state, fixtures, groupRes, isPlayed, scheduleKnockout, matchTime, result
             <template v-else>vs</template>
           </div>
           <div class="away" :class="{ win: resultWinner(m.res, m) === m.away }">{{ m.away }}</div>
+          </div>
         </div>
       </div>
     </div>

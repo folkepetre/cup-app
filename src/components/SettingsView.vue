@@ -6,41 +6,56 @@ const { state, applyFormat, resetAll, confirmDialog, alertDialog } = useTourname
 
 // Format-utkast (tillämpas först när man trycker "Bygg om format")
 const draftCounts = ref(state.groups.map((g) => g.teams.length))
-const draftAdvance = ref(state.advancePerGroup)
+const draftBands = ref([...(state.playoffBands && state.playoffBands.length ? state.playoffBands : [state.advancePerGroup || 2])])
 
 const groupLetter = (i) => String.fromCharCode(65 + i)
+const pow2 = (n) => { if (n < 2) return 0; let p = 1; while (p < n) p *= 2; return p }
 
 const totalTeams = computed(() => draftCounts.value.reduce((a, b) => a + b, 0))
-const Q = computed(() => draftAdvance.value * draftCounts.value.length)
-const bracketSize = computed(() => {
-  if (Q.value < 2) return 0
-  let p = 1; while (p < Q.value) p *= 2; return p
+const numGroups = computed(() => draftCounts.value.length)
+const advanceTotal = computed(() => draftBands.value.reduce((a, b) => a + b, 0))
+const minGroupSize = computed(() => (draftCounts.value.length ? Math.min(...draftCounts.value) : 0))
+
+// Info per slutspel: vilka placeringar, antal lag, trädstorlek, byes
+const tierInfo = computed(() => {
+  let lo = 0
+  return draftBands.value.map((size, i) => {
+    const count = size * numGroups.value
+    const B = pow2(count)
+    const info = { id: groupLetter(i), name: `${groupLetter(i)}-slutspel`, size, lo: lo + 1, hi: lo + size, count, byes: B ? B - count : 0, B }
+    lo += size
+    return info
+  })
 })
-const byes = computed(() => (bracketSize.value ? bracketSize.value - Q.value : 0))
 
 const warnings = computed(() => {
   const w = []
   if (draftCounts.value.length === 0) w.push('Lägg till minst en grupp.')
-  if (draftCounts.value.some((c) => c < draftAdvance.value)) {
-    w.push('Någon grupp har färre lag än antalet som ska gå vidare.')
+  if (draftBands.value.length === 0) w.push('Lägg till minst ett slutspel.')
+  if (advanceTotal.value > minGroupSize.value) {
+    w.push('Slutspelen kräver fler placeringar än vad någon grupp har lag. Minska antal placeringar eller lägg till lag.')
   }
-  if (Q.value < 2) w.push('Minst 2 lag måste gå vidare för att ett slutspel ska kunna spelas.')
+  if (tierInfo.value.some((t) => t.count < 2)) w.push('Varje slutspel behöver minst 2 lag.')
   return w
 })
 
 const dirty = computed(() =>
   JSON.stringify(draftCounts.value) !== JSON.stringify(state.groups.map((g) => g.teams.length)) ||
-  draftAdvance.value !== state.advancePerGroup)
+  JSON.stringify(draftBands.value) !== JSON.stringify(state.playoffBands && state.playoffBands.length ? state.playoffBands : [state.advancePerGroup || 2]))
 
 const addGroup = () => { if (draftCounts.value.length < 26) draftCounts.value.push(4) }
 const removeGroup = (i) => { draftCounts.value.splice(i, 1) }
 const incTeam = (i) => { draftCounts.value[i]++ }
 const decTeam = (i) => { if (draftCounts.value[i] > 1) draftCounts.value[i]-- }
-const incAdv = () => { draftAdvance.value++ }
-const decAdv = () => { if (draftAdvance.value > 1) draftAdvance.value-- }
+
+const addTier = () => { if (draftBands.value.length < 8) draftBands.value.push(1) }
+const removeTier = (i) => { if (draftBands.value.length > 1) draftBands.value.splice(i, 1) }
+const incBand = (i) => { draftBands.value[i]++ }
+const decBand = (i) => { if (draftBands.value[i] > 1) draftBands.value[i]-- }
+
 const resetDraft = () => {
   draftCounts.value = state.groups.map((g) => g.teams.length)
-  draftAdvance.value = state.advancePerGroup
+  draftBands.value = [...(state.playoffBands && state.playoffBands.length ? state.playoffBands : [state.advancePerGroup || 2])]
 }
 
 const buildFormat = async () => {
@@ -54,7 +69,7 @@ const buildFormat = async () => {
     confirmText: 'Bygg om',
     danger: true
   })
-  if (ok) applyFormat([...draftCounts.value], draftAdvance.value)
+  if (ok) applyFormat([...draftCounts.value], [...draftBands.value])
 }
 </script>
 
@@ -82,19 +97,12 @@ const buildFormat = async () => {
     <div class="card" style="margin-top:18px">
       <h2>Cupformat</h2>
       <p class="hint" style="margin-top:0">
-        Ställ in antal grupper, lag per grupp (får vara olika stora) och hur många som går vidare per grupp.
-        Slutspelsträdet byggs automatiskt – udda antal hanteras med bye.
+        Ställ in grupper (får vara olika stora) och ett eller flera slutspel. Varje slutspel tar ett
+        antal placeringar per grupp – t.ex. A = plats 1–2, B = plats 3–4. Träden byggs automatiskt och
+        udda antal hanteras med bye.
       </p>
 
-      <div class="fmt-advance">
-        <label>Antal som går vidare per grupp</label>
-        <div class="stepper">
-          <button class="btn ghost" @click="decAdv">−</button>
-          <span class="stepper-val">{{ draftAdvance }}</span>
-          <button class="btn ghost" @click="incAdv">+</button>
-        </div>
-      </div>
-
+      <label class="fmt-label">Grupper &amp; lag</label>
       <div class="fmt-groups">
         <div class="fmt-group" v-for="(c, i) in draftCounts" :key="i">
           <div class="fmt-group-head">
@@ -108,18 +116,33 @@ const buildFormat = async () => {
           </div>
           <div class="fmt-group-sub">lag</div>
         </div>
-
         <button class="fmt-add" @click="addGroup">+ Lägg till grupp</button>
+      </div>
+
+      <label class="fmt-label" style="margin-top:18px">Slutspel (placeringar per grupp)</label>
+      <div class="fmt-groups">
+        <div class="fmt-group" v-for="(t, i) in tierInfo" :key="i">
+          <div class="fmt-group-head">
+            <span class="tag">{{ t.name }}</span>
+            <button class="x" v-if="draftBands.length > 1" title="Ta bort slutspel" @click="removeTier(i)">✕</button>
+          </div>
+          <div class="stepper">
+            <button class="btn ghost" @click="decBand(i)">−</button>
+            <span class="stepper-val">{{ t.size }}</span>
+            <button class="btn ghost" @click="incBand(i)">+</button>
+          </div>
+          <div class="fmt-group-sub">plats {{ t.lo }}<template v-if="t.hi > t.lo">–{{ t.hi }}</template></div>
+          <div class="fmt-tier-meta">{{ t.count }} lag<template v-if="t.byes"> · {{ t.byes }} bye</template></div>
+        </div>
+        <button class="fmt-add" v-if="draftBands.length < 8" @click="addTier">+ Lägg till slutspel</button>
       </div>
 
       <div class="fmt-summary">
         <span><strong>{{ totalTeams }}</strong> lag totalt</span>
         <span class="arrow">→</span>
-        <span><strong>{{ Q }}</strong> till slutspel</span>
-        <template v-if="bracketSize">
-          <span class="arrow">→</span>
-          <span><strong>{{ bracketSize }}</strong>-lagsträd<template v-if="byes"> ({{ byes }} bye)</template></span>
-        </template>
+        <span><strong>{{ advanceTotal }}</strong> av {{ minGroupSize }} per grupp vidare</span>
+        <span class="arrow">→</span>
+        <span><strong>{{ draftBands.length }}</strong> slutspel</span>
       </div>
 
       <div class="fmt-warn" v-for="(w, wi) in warnings" :key="wi">⚠️ {{ w }}</div>
