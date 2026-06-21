@@ -46,7 +46,7 @@ Starta om `npm run dev`. En grön **Live**-prick visas uppe till höger.
 5. **Deploy**. Efter ~1 min får du en adress som `cupen-2026.netlify.app`.
    (Du kan byta namnet under Site settings → Change site name.)
 
-Klart! Dela länken med deltagarna. Du loggar in som admin med PIN (1234,
+Klart! Dela länken med deltagarna. Du loggar in som admin med PIN (8170,
 byt den under **Inställningar**) och alla ser dina resultat live. ✅
 
 ---

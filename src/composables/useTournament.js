@@ -127,7 +127,7 @@ export function defaultState () {
   const playoffBands = [2]
   return {
     name: 'DJ Cup 2026',
-    adminPin: '1234',
+    adminPin: '8170',
     playoffBands,
     advancePerGroup: playoffBands.reduce((a, b) => a + b, 0),
     groups,
