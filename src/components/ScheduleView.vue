@@ -1,7 +1,7 @@
 <script setup>
 import { useTournament } from '../composables/useTournament'
 
-const { state, fixtures, groupRes, isPlayed, scheduleKnockout, matchTime, resultWinner, adminMode } = useTournament()
+const { state, enabledFixtures, groupRes, isPlayed, scheduleKnockout, matchTime, resultWinner, adminMode, specialList } = useTournament()
 </script>
 
 <template>
@@ -15,23 +15,51 @@ const { state, fixtures, groupRes, isPlayed, scheduleKnockout, matchTime, result
       <h2>Gruppspel</h2>
       <div class="sched-group" v-for="g in state.groups" :key="g.id">
         <h3>Grupp {{ g.id }}</h3>
-        <div class="smatch" :class="{ adminrow: adminMode }" v-for="(m, mi) in fixtures(g)" :key="mi">
+        <div class="smatch" :class="{ adminrow: adminMode }" v-for="m in enabledFixtures(g)" :key="m.i">
           <div class="smatch-time">
             <template v-if="adminMode">
-              <input class="meta-time" type="time" v-model="matchTime(g.id + '-' + mi).time">
-              <input class="meta-venue" type="text" v-model="matchTime(g.id + '-' + mi).venue" placeholder="Plan…">
+              <input class="meta-time" type="time" v-model="matchTime(g.id + '-' + m.i).time">
+              <input class="meta-venue" type="text" v-model="matchTime(g.id + '-' + m.i).venue" placeholder="Plan…">
             </template>
             <template v-else>
-              <span class="t" :class="{ empty: !matchTime(g.id + '-' + mi).time }">{{ matchTime(g.id + '-' + mi).time || '–' }}</span>
-              <span class="v" v-if="matchTime(g.id + '-' + mi).venue">{{ matchTime(g.id + '-' + mi).venue }}</span>
+              <span class="t" :class="{ empty: !matchTime(g.id + '-' + m.i).time }">{{ matchTime(g.id + '-' + m.i).time || '–' }}</span>
+              <span class="v" v-if="matchTime(g.id + '-' + m.i).venue">{{ matchTime(g.id + '-' + m.i).venue }}</span>
             </template>
           </div>
-          <div class="home" :class="{ win: resultWinner(groupRes(g.id, mi), m) === m.h }">{{ m.h }}</div>
-          <div class="score-pill" :class="{ vs: !isPlayed(groupRes(g.id, mi)) }">
-            <template v-if="isPlayed(groupRes(g.id, mi))">{{ groupRes(g.id, mi).hs }} – {{ groupRes(g.id, mi).as }}</template>
+          <div class="home" :class="{ win: resultWinner(groupRes(g.id, m.i), m) === m.h }">{{ m.h }}</div>
+          <div class="score-pill" :class="{ vs: !isPlayed(groupRes(g.id, m.i)) }">
+            <template v-if="isPlayed(groupRes(g.id, m.i))">{{ groupRes(g.id, m.i).hs }} – {{ groupRes(g.id, m.i).as }}</template>
             <template v-else>vs</template>
           </div>
-          <div class="away" :class="{ win: resultWinner(groupRes(g.id, mi), m) === m.a }">{{ m.a }}</div>
+          <div class="away" :class="{ win: resultWinner(groupRes(g.id, m.i), m) === m.a }">{{ m.a }}</div>
+        </div>
+      </div>
+
+      <!-- Specialmatcher (t.ex. övergripande A5–B5) -->
+      <div class="sched-group" v-if="specialList.length">
+        <h3>Specialmatcher</h3>
+        <div class="smatch" :class="{ adminrow: adminMode }" v-for="sp in specialList" :key="sp.i">
+          <div class="smatch-time">
+            <template v-if="adminMode">
+              <input class="meta-time" type="time" v-model="sp.sm.time">
+              <input class="meta-venue" type="text" v-model="sp.sm.venue" placeholder="Plan…">
+            </template>
+            <template v-else>
+              <span class="t" :class="{ empty: !sp.sm.time }">{{ sp.sm.time || '–' }}</span>
+              <span class="v" v-if="sp.sm.venue">{{ sp.sm.venue }}</span>
+            </template>
+          </div>
+          <div class="home" :class="{ win: sp.winner === sp.home }">{{ sp.home }}</div>
+          <div v-if="adminMode" class="sp-entry">
+            <input type="number" min="0" v-model.number="sp.res.hs">
+            <span class="sep">–</span>
+            <input type="number" min="0" v-model.number="sp.res.as">
+          </div>
+          <div v-else class="score-pill" :class="{ vs: !isPlayed(sp.res) }">
+            <template v-if="isPlayed(sp.res)">{{ sp.res.hs }} – {{ sp.res.as }}</template>
+            <template v-else>vs</template>
+          </div>
+          <div class="away" :class="{ win: sp.winner === sp.away }">{{ sp.away }}</div>
         </div>
       </div>
     </div>

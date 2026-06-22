@@ -1,7 +1,7 @@
 <script setup>
 import { useTournament } from '../composables/useTournament'
 
-const { state, standings, fixtures, groupRes, resultWinner, adminMode } = useTournament()
+const { state, standings, enabledFixtures, groupRes, resultWinner, adminMode } = useTournament()
 </script>
 
 <template>
@@ -38,27 +38,17 @@ const { state, standings, fixtures, groupRes, resultWinner, adminMode } = useTou
         <div class="qual-note"><span class="dot"></span> Topp {{ state.advancePerGroup }} går till slutspel</div>
 
         <div class="matches" v-if="adminMode">
-          <div class="match" v-for="(m, mi) in fixtures(g)" :key="mi">
+          <div class="match" v-for="m in enabledFixtures(g)" :key="m.i">
             <div class="home">
-              <span class="mteam" :class="{ winner: resultWinner(groupRes(g.id, mi), m) === m.h }">{{ m.h }}</span>
+              <span class="mteam" :class="{ winner: resultWinner(groupRes(g.id, m.i), m) === m.h }">{{ m.h }}</span>
             </div>
             <div class="score">
-              <template v-if="adminMode">
-                <input type="number" min="0" v-model.number="groupRes(g.id, mi).hs">
-                <span class="sep">–</span>
-                <input type="number" min="0" v-model.number="groupRes(g.id, mi).as">
-              </template>
-              <template v-else>
-                <span class="score-ro">
-                  <template v-if="groupRes(g.id, mi).hs != null && groupRes(g.id, mi).as != null">
-                    {{ groupRes(g.id, mi).hs }} – {{ groupRes(g.id, mi).as }}
-                  </template>
-                  <template v-else><span class="sep muted">vs</span></template>
-                </span>
-              </template>
+              <input type="number" min="0" v-model.number="groupRes(g.id, m.i).hs">
+              <span class="sep">–</span>
+              <input type="number" min="0" v-model.number="groupRes(g.id, m.i).as">
             </div>
             <div class="away">
-              <span class="mteam" :class="{ winner: resultWinner(groupRes(g.id, mi), m) === m.a }">{{ m.a }}</span>
+              <span class="mteam" :class="{ winner: resultWinner(groupRes(g.id, m.i), m) === m.a }">{{ m.a }}</span>
             </div>
           </div>
         </div>

@@ -179,7 +179,10 @@ export function defaultState () {
     groupResults: defaultGroupResults(groups),
     matchTimes: defaultMatchTimes(groups, playoffBands),
     ko: buildAllKo(playoffBands, groups.length),
-    seeding: buildAllSeeding(playoffBands, groups)
+    seeding: buildAllSeeding(playoffBands, groups),
+    disabledFixtures: {}, // { gid: [fixtureIndex, ...] } matcher som inte spelas
+    specialMatches: [], // extra/övergripande matcher, se nedan
+    bronzeOff: {} // { tierId: true } → ingen bronsmatch i det slutspelet
   }
 }
 
@@ -221,7 +224,10 @@ function migrate (s) {
     groupResults: Object.assign(defaultGroupResults(groups), s.groupResults || {}),
     matchTimes: Object.assign(defaultMatchTimes(groups, bands), s.matchTimes || {}),
     ko,
-    seeding
+    seeding,
+    disabledFixtures: (s.disabledFixtures && typeof s.disabledFixtures === 'object') ? s.disabledFixtures : {},
+    specialMatches: Array.isArray(s.specialMatches) ? s.specialMatches : [],
+    bronzeOff: (s.bronzeOff && typeof s.bronzeOff === 'object') ? s.bronzeOff : {}
   }
 }
 
@@ -361,6 +367,23 @@ const isPlayed = (r) =>
 
 const fixtures = (g) => roundRobin(g.teams.length).map(([h, a]) => ({ h: g.teams[h], a: g.teams[a] }))
 
+// Av/på för enskilda gruppmatcher (för bantade scheman där alla inte möter alla)
+const fixtureDisabled = (gid, i) => {
+  const list = state.disabledFixtures && state.disabledFixtures[gid]
+  return Array.isArray(list) && list.includes(i)
+}
+const toggleFixture = (gid, i) => {
+  if (!state.disabledFixtures[gid]) state.disabledFixtures[gid] = []
+  const list = state.disabledFixtures[gid]
+  const idx = list.indexOf(i)
+  if (idx === -1) list.push(i)
+  else list.splice(idx, 1)
+}
+// Aktiva gruppmatcher (de som faktiskt spelas) med sitt fixture-index
+const enabledFixtures = (g) => fixtures(g)
+  .map((m, i) => ({ ...m, i }))
+  .filter((m) => !fixtureDisabled(g.id, m.i))
+
 const resultWinner = (res, m) => {
   const home = m.home ?? m.h
   const away = m.away ?? m.a
@@ -380,6 +403,7 @@ function headToHead (names, g) {
   const mini = {}
   names.forEach((n) => { mini[n] = { pts: 0, gd: 0, gf: 0 } })
   fixtures(g).forEach((m, i) => {
+    if (fixtureDisabled(g.id, i)) return
     if (!set.has(m.h) || !set.has(m.a)) return
     const r = groupRes(g.id, i)
     if (!isPlayed(r)) return
@@ -395,13 +419,23 @@ function headToHead (names, g) {
 const standings = (g) => {
   const stats = {}
   g.teams.forEach((t) => { stats[t] = { name: t, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0 } })
+  const credit = (name, gf, ga) => {
+    const s = stats[name]
+    if (!s) return
+    s.p++; s.gf += gf; s.ga += ga
+    if (gf > ga) { s.w++; s.pts += 3 } else if (ga > gf) { s.l++ } else { s.d++; s.pts++ }
+  }
   fixtures(g).forEach((m, i) => {
+    if (fixtureDisabled(g.id, i)) return
     const r = groupRes(g.id, i)
     if (!isPlayed(r)) return
-    const H = stats[m.h]; const A = stats[m.a]
-    if (!H || !A) return
-    H.p++; A.p++; H.gf += r.hs; H.ga += r.as; A.gf += r.as; A.ga += r.hs
-    if (r.hs > r.as) { H.w++; A.l++; H.pts += 3 } else if (r.as > r.hs) { A.w++; H.l++; A.pts += 3 } else { H.d++; A.d++; H.pts++; A.pts++ }
+    credit(m.h, r.hs, r.as); credit(m.a, r.as, r.hs)
+  })
+  // Specialmatcher som ska räknas i den här gruppens tabell
+  ;(state.specialMatches || []).forEach((sm) => {
+    if (!sm.counts || !isPlayed(sm.res)) return
+    if (sm.hg === g.id) credit(g.teams[sm.ht], sm.res.hs, sm.res.as)
+    if (sm.ag === g.id) credit(g.teams[sm.at], sm.res.as, sm.res.hs)
   })
   const arr = Object.values(stats)
     .map((s) => { s.gd = s.gf - s.ga; return s })
@@ -489,7 +523,8 @@ const brackets = computed(() => tiers.value.map((t) => {
   const rounds = buildBracketRounds(seedMatches, koTier, t.id)
   const champion = rounds.length ? rounds[rounds.length - 1][0].winner : null
   let third = null
-  if (rounds.length >= 2) {
+  const bronzeOn = !(state.bronzeOff && state.bronzeOff[t.id])
+  if (bronzeOn && rounds.length >= 2) {
     const semis = rounds[rounds.length - 2]
     if (semis.length === 2) {
       const loser = (mt) => (mt.winner ? (mt.winner === mt.home ? mt.away : mt.home) : null)
@@ -556,12 +591,49 @@ function seedingHasDuplicates (tierId) {
   return false
 }
 
+// ---- Specialmatcher (extra/övergripande matcher, t.ex. A5–B5) ----
+const specialTeamName = (gid, t) => { const g = gById(gid); return g ? (g.teams[t] ?? '—') : '—' }
+const teamRefKey = (gid, t) => `${gid}:${t}`
+const allTeamOptions = () => state.groups.flatMap((g) =>
+  g.teams.map((name, t) => ({ key: teamRefKey(g.id, t), label: `${g.id}: ${name}` })))
+
+function blankSpecial () {
+  const g0 = state.groups[0]
+  const g1 = state.groups[1] || g0
+  const at = (g1 === g0 && g1.teams.length > 1) ? 1 : 0
+  return { hg: g0.id, ht: 0, ag: g1.id, at, counts: true, res: blank(), time: '', venue: '' }
+}
+function addSpecialMatch () { state.specialMatches.push(blankSpecial()) }
+function removeSpecialMatch (i) { state.specialMatches.splice(i, 1) }
+function setSpecialTeam (i, side, key) {
+  const sm = state.specialMatches[i]; if (!sm) return
+  const [g, t] = key.split(':')
+  if (side === 'home') { sm.hg = g; sm.ht = Number(t) } else { sm.ag = g; sm.at = Number(t) }
+}
+
+// Specialmatcher med upplösta lagnamn (för schemat/resultatinmatning)
+const specialList = computed(() => (state.specialMatches || []).map((sm, i) => {
+  const home = specialTeamName(sm.hg, sm.ht)
+  const away = specialTeamName(sm.ag, sm.at)
+  return { i, sm, home, away, res: sm.res, winner: resultWinner(sm.res, { home, away }), counts: sm.counts }
+}))
+
+// Av/på för bronsmatch per slutspel
+const bronzeEnabled = (tierId) => !(state.bronzeOff && state.bronzeOff[tierId])
+const toggleBronze = (tierId) => {
+  if (!state.bronzeOff) state.bronzeOff = {}
+  if (state.bronzeOff[tierId]) delete state.bronzeOff[tierId]
+  else state.bronzeOff[tierId] = true
+}
+
 // ---- Format-ändring (admin) ----
 function rebuildStructure () {
   state.groupResults = defaultGroupResults(state.groups)
   state.matchTimes = defaultMatchTimes(state.groups, state.playoffBands)
   state.ko = buildAllKo(state.playoffBands, state.groups.length)
   state.seeding = buildAllSeeding(state.playoffBands, state.groups)
+  state.disabledFixtures = {} // fixture-index ändras med gruppstorlek → nollställ
+  state.specialMatches = [] // lagreferenser kan bli ogiltiga → nollställ
 }
 
 // counts: array med antal lag per grupp; bands: array med antal placeringar per slutspel
@@ -618,6 +690,9 @@ export function useTournament () {
     brackets, scheduleKnockout, koRoundLabel,
     applyFormat,
     slotLabel, slotKey, tierSlotOptions, setSeedSlot, resetTierSeeding, seedingHasDuplicates,
+    fixtureDisabled, toggleFixture, enabledFixtures,
+    specialList, addSpecialMatch, removeSpecialMatch, setSpecialTeam, specialTeamName, teamRefKey, allTeamOptions,
+    bronzeEnabled, toggleBronze,
     exportData, importData, resetAll
   }
 }

@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useTournament } from '../composables/useTournament'
 
-const { state, applyFormat, resetAll, confirmDialog, alertDialog, tiers, slotKey, tierSlotOptions, setSeedSlot, resetTierSeeding, seedingHasDuplicates } = useTournament()
+const { state, applyFormat, resetAll, confirmDialog, alertDialog, tiers, slotKey, tierSlotOptions, setSeedSlot, resetTierSeeding, seedingHasDuplicates, fixtures, fixtureDisabled, toggleFixture, specialList, addSpecialMatch, removeSpecialMatch, setSpecialTeam, teamRefKey, allTeamOptions, bronzeEnabled, toggleBronze } = useTournament()
 
 // Format-utkast (tillämpas först när man trycker "Bygg om format")
 const draftCounts = ref(state.groups.map((g) => g.teams.length))
@@ -165,7 +165,10 @@ const buildFormat = async () => {
       <div class="seed-tier" v-for="t in tiers" :key="t.id">
         <div class="seed-tier-head">
           <span class="tag">{{ t.name }}</span>
-          <button class="btn ghost" @click="resetTierSeeding(t)">Återställ standard</button>
+          <div class="seed-tier-actions">
+            <label class="seed-check"><input type="checkbox" :checked="bronzeEnabled(t.id)" @change="toggleBronze(t.id)"> Bronsmatch</label>
+            <button class="btn ghost" @click="resetTierSeeding(t)">Återställ standard</button>
+          </div>
         </div>
         <div class="seed-warn" v-if="seedingHasDuplicates(t.id)">
           ⚠️ Samma placering används flera gånger – kontrollera mötena.
@@ -184,6 +187,46 @@ const buildFormat = async () => {
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Gruppmatcher (bantat schema) + specialmatcher -->
+    <div class="card" style="margin-top:18px">
+      <h2>Gruppmatcher</h2>
+      <p class="hint" style="margin-top:0">
+        Bocka ur matcher som <strong>inte</strong> ska spelas (för bantade scheman där alla inte möter alla).
+        Urbockade matcher försvinner ur schemat och räknas inte i tabellen.
+      </p>
+      <div class="fixt-groups">
+        <div class="fixt-group" v-for="g in state.groups" :key="g.id">
+          <div class="fixt-head"><span class="tag">Grupp {{ g.id }}</span></div>
+          <label class="fixt-row" v-for="(m, i) in fixtures(g)" :key="i" :class="{ off: fixtureDisabled(g.id, i) }">
+            <input type="checkbox" :checked="!fixtureDisabled(g.id, i)" @change="toggleFixture(g.id, i)">
+            <span>{{ m.h }} – {{ m.a }}</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <h2>Specialmatcher</h2>
+      <p class="hint" style="margin-top:0">
+        Extra matcher, t.ex. en match mellan lag i olika grupper (A5–B5). Med <strong>"räknas i tabell"</strong>
+        läggs resultatet i respektive lags grupptabell; annars är det bara en fristående match i schemat.
+      </p>
+      <div class="special-list">
+        <div class="special-row" v-for="sp in specialList" :key="sp.i">
+          <select class="seed-select" :value="teamRefKey(sp.sm.hg, sp.sm.ht)" @change="setSpecialTeam(sp.i, 'home', $event.target.value)">
+            <option v-for="o in allTeamOptions()" :key="o.key" :value="o.key">{{ o.label }}</option>
+          </select>
+          <span class="seed-vs">mot</span>
+          <select class="seed-select" :value="teamRefKey(sp.sm.ag, sp.sm.at)" @change="setSpecialTeam(sp.i, 'away', $event.target.value)">
+            <option v-for="o in allTeamOptions()" :key="o.key" :value="o.key">{{ o.label }}</option>
+          </select>
+          <label class="seed-check"><input type="checkbox" v-model="sp.sm.counts"> räknas i tabell</label>
+          <button class="x" title="Ta bort" @click="removeSpecialMatch(sp.i)">✕</button>
+        </div>
+      </div>
+      <button class="fmt-add" style="margin-top:12px;max-width:220px" @click="addSpecialMatch">+ Lägg till specialmatch</button>
     </div>
 
     <!-- Lagnamn -->
