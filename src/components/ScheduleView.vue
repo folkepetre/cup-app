@@ -2,6 +2,20 @@
 import { useTournament } from '../composables/useTournament'
 
 const { state, enabledFixtures, groupRes, isPlayed, scheduleKnockout, matchTime, resultWinner, adminMode, specialList } = useTournament()
+
+// Sortera en lista efter starttid (matcher utan tid hamnar sist, annars stabil ordning)
+const byTime = (arr, getTime) => arr
+  .map((item, i) => ({ item, i }))
+  .sort((a, b) => {
+    const ta = getTime(a.item) || '99:99'
+    const tb = getTime(b.item) || '99:99'
+    return ta.localeCompare(tb) || a.i - b.i
+  })
+  .map((x) => x.item)
+
+const groupSchedule = (g) => byTime(enabledFixtures(g), (m) => matchTime(g.id + '-' + m.i).time)
+const sortedSpecials = () => byTime(specialList.value, (sp) => sp.sm.time)
+const roundByTime = (matches) => byTime(matches, (m) => matchTime(m.timeKey).time)
 </script>
 
 <template>
@@ -15,7 +29,7 @@ const { state, enabledFixtures, groupRes, isPlayed, scheduleKnockout, matchTime,
       <h2>Gruppspel</h2>
       <div class="sched-group" v-for="g in state.groups" :key="g.id">
         <h3>Grupp {{ g.id }}</h3>
-        <div class="smatch" :class="{ adminrow: adminMode }" v-for="m in enabledFixtures(g)" :key="m.i">
+        <div class="smatch" :class="{ adminrow: adminMode }" v-for="m in groupSchedule(g)" :key="m.i">
           <div class="smatch-time">
             <template v-if="adminMode">
               <input class="meta-time" type="time" v-model="matchTime(g.id + '-' + m.i).time">
@@ -38,7 +52,7 @@ const { state, enabledFixtures, groupRes, isPlayed, scheduleKnockout, matchTime,
       <!-- Specialmatcher (t.ex. övergripande A5–B5) -->
       <div class="sched-group" v-if="specialList.length">
         <h3>Specialmatcher</h3>
-        <div class="smatch" :class="{ adminrow: adminMode }" v-for="sp in specialList" :key="sp.i">
+        <div class="smatch" :class="{ adminrow: adminMode }" v-for="sp in sortedSpecials()" :key="sp.i">
           <div class="smatch-time">
             <template v-if="adminMode">
               <input class="meta-time" type="time" v-model="sp.sm.time">
@@ -70,7 +84,7 @@ const { state, enabledFixtures, groupRes, isPlayed, scheduleKnockout, matchTime,
         <h3 class="tier-head" v-if="scheduleKnockout.length > 1">{{ t.tier }}</h3>
         <div class="sched-group" v-for="r in t.rounds" :key="r.label">
           <h3>{{ r.label }}</h3>
-          <div class="smatch" :class="{ adminrow: adminMode }" v-for="(m, mi) in r.matches" :key="mi">
+          <div class="smatch" :class="{ adminrow: adminMode }" v-for="(m, mi) in roundByTime(r.matches)" :key="mi">
             <div class="smatch-time">
             <template v-if="adminMode">
               <input class="meta-time" type="time" v-model="matchTime(m.timeKey).time">
