@@ -1,7 +1,17 @@
 <script setup>
 import { useTournament } from '../composables/useTournament'
 
-const { state, standings, enabledFixtures, groupRes, resultWinner, adminMode } = useTournament()
+const { state, standings, enabledFixtures, groupRes, resultWinner, adminMode, matchTime } = useTournament()
+
+// Matcher i tidsordning (matcher utan satt tid hamnar sist)
+const entryFixtures = (g) => enabledFixtures(g)
+  .map((m, idx) => ({ m, idx }))
+  .sort((a, b) => {
+    const ta = matchTime(g.id + '-' + a.m.i).time || '99:99'
+    const tb = matchTime(g.id + '-' + b.m.i).time || '99:99'
+    return ta.localeCompare(tb) || a.idx - b.idx
+  })
+  .map((x) => x.m)
 </script>
 
 <template>
@@ -38,7 +48,7 @@ const { state, standings, enabledFixtures, groupRes, resultWinner, adminMode } =
         <div class="qual-note"><span class="dot"></span> Topp {{ state.advancePerGroup }} går till slutspel</div>
 
         <div class="matches" v-if="adminMode">
-          <div class="match" v-for="m in enabledFixtures(g)" :key="m.i">
+          <div class="match" v-for="m in entryFixtures(g)" :key="m.i">
             <div class="home">
               <span class="mteam" :class="{ winner: resultWinner(groupRes(g.id, m.i), m) === m.h }">{{ m.h }}</span>
             </div>
