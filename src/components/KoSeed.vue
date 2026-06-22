@@ -12,11 +12,12 @@ const { adminMode, needsPen, setPen } = useTournament()
 
 const homeName = computed(() => props.match.home ?? (props.match.isBye ? 'Bye' : '—'))
 const awayName = computed(() => props.match.away ?? (props.match.isBye ? 'Bye' : '—'))
-const homeTbd = computed(() => props.match.home == null)
-const awayTbd = computed(() => props.match.away == null)
+const homeTbd = computed(() => props.match.homeTbd ?? (props.match.home == null))
+const awayTbd = computed(() => props.match.awayTbd ?? (props.match.away == null))
 // Poänginmatning bara när båda lagen är kända och det inte är en bye
 const editable = computed(() =>
-  adminMode.value && !props.match.isBye && props.match.home != null && props.match.away != null)
+  adminMode.value && !props.match.isBye && props.match.home != null && props.match.away != null &&
+  !homeTbd.value && !awayTbd.value)
 const winner = computed(() => props.match.winner)
 </script>
 

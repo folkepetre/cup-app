@@ -13,9 +13,16 @@ const byTime = (arr, getTime) => arr
   })
   .map((x) => x.item)
 
-const groupSchedule = (g) => byTime(enabledFixtures(g), (m) => matchTime(g.id + '-' + m.i).time)
-const sortedSpecials = () => byTime(specialList.value, (sp) => sp.sm.time)
 const roundByTime = (matches) => byTime(matches, (m) => matchTime(m.timeKey).time)
+
+// Gruppens schema = ordinarie matcher + specialmatcher som berör gruppen, sorterat på tid
+const groupItems = (g) => {
+  const fix = enabledFixtures(g).map((m) => ({ kind: 'g', key: 'g' + m.i, time: matchTime(g.id + '-' + m.i).time, m }))
+  const sp = specialList.value
+    .filter((s) => s.sm.hg === g.id || s.sm.ag === g.id)
+    .map((s) => ({ kind: 's', key: 's' + s.i, time: s.sm.time, sp: s }))
+  return byTime([...fix, ...sp], (it) => it.time)
+}
 </script>
 
 <template>
@@ -29,52 +36,52 @@ const roundByTime = (matches) => byTime(matches, (m) => matchTime(m.timeKey).tim
       <h2>Gruppspel</h2>
       <div class="sched-group" v-for="g in state.groups" :key="g.id">
         <h3>Grupp {{ g.id }}</h3>
-        <div class="smatch" :class="{ adminrow: adminMode }" v-for="m in groupSchedule(g)" :key="m.i">
-          <div class="smatch-time">
-            <template v-if="adminMode">
-              <input class="meta-time" type="time" v-model="matchTime(g.id + '-' + m.i).time">
-              <input class="meta-venue" type="text" v-model="matchTime(g.id + '-' + m.i).venue" placeholder="Plan…">
-            </template>
-            <template v-else>
-              <span class="t" :class="{ empty: !matchTime(g.id + '-' + m.i).time }">{{ matchTime(g.id + '-' + m.i).time || '–' }}</span>
-              <span class="v" v-if="matchTime(g.id + '-' + m.i).venue">{{ matchTime(g.id + '-' + m.i).venue }}</span>
-            </template>
+        <template v-for="it in groupItems(g)" :key="it.key">
+          <!-- Ordinarie gruppmatch -->
+          <div v-if="it.kind === 'g'" class="smatch" :class="{ adminrow: adminMode }">
+            <div class="smatch-time">
+              <template v-if="adminMode">
+                <input class="meta-time" type="time" v-model="matchTime(g.id + '-' + it.m.i).time">
+                <input class="meta-venue" type="text" v-model="matchTime(g.id + '-' + it.m.i).venue" placeholder="Plan…">
+              </template>
+              <template v-else>
+                <span class="t" :class="{ empty: !matchTime(g.id + '-' + it.m.i).time }">{{ matchTime(g.id + '-' + it.m.i).time || '–' }}</span>
+                <span class="v" v-if="matchTime(g.id + '-' + it.m.i).venue">{{ matchTime(g.id + '-' + it.m.i).venue }}</span>
+              </template>
+            </div>
+            <div class="home" :class="{ win: resultWinner(groupRes(g.id, it.m.i), it.m) === it.m.h }">{{ it.m.h }}</div>
+            <div class="score-pill" :class="{ vs: !isPlayed(groupRes(g.id, it.m.i)) }">
+              <template v-if="isPlayed(groupRes(g.id, it.m.i))">{{ groupRes(g.id, it.m.i).hs }} – {{ groupRes(g.id, it.m.i).as }}</template>
+              <template v-else>vs</template>
+            </div>
+            <div class="away" :class="{ win: resultWinner(groupRes(g.id, it.m.i), it.m) === it.m.a }">{{ it.m.a }}</div>
           </div>
-          <div class="home" :class="{ win: resultWinner(groupRes(g.id, m.i), m) === m.h }">{{ m.h }}</div>
-          <div class="score-pill" :class="{ vs: !isPlayed(groupRes(g.id, m.i)) }">
-            <template v-if="isPlayed(groupRes(g.id, m.i))">{{ groupRes(g.id, m.i).hs }} – {{ groupRes(g.id, m.i).as }}</template>
-            <template v-else>vs</template>
-          </div>
-          <div class="away" :class="{ win: resultWinner(groupRes(g.id, m.i), m) === m.a }">{{ m.a }}</div>
-        </div>
-      </div>
 
-      <!-- Specialmatcher (t.ex. övergripande A5–B5) -->
-      <div class="sched-group" v-if="specialList.length">
-        <h3>Specialmatcher</h3>
-        <div class="smatch" :class="{ adminrow: adminMode }" v-for="sp in sortedSpecials()" :key="sp.i">
-          <div class="smatch-time">
-            <template v-if="adminMode">
-              <input class="meta-time" type="time" v-model="sp.sm.time">
-              <input class="meta-venue" type="text" v-model="sp.sm.venue" placeholder="Plan…">
-            </template>
-            <template v-else>
-              <span class="t" :class="{ empty: !sp.sm.time }">{{ sp.sm.time || '–' }}</span>
-              <span class="v" v-if="sp.sm.venue">{{ sp.sm.venue }}</span>
-            </template>
+          <!-- Specialmatch (berör denna grupp) -->
+          <div v-else class="smatch special-match" :class="{ adminrow: adminMode }">
+            <div class="smatch-time">
+              <template v-if="adminMode">
+                <input class="meta-time" type="time" v-model="it.sp.sm.time">
+                <input class="meta-venue" type="text" v-model="it.sp.sm.venue" placeholder="Plan…">
+              </template>
+              <template v-else>
+                <span class="t" :class="{ empty: !it.sp.sm.time }">{{ it.sp.sm.time || '–' }}</span>
+                <span class="v" v-if="it.sp.sm.venue">{{ it.sp.sm.venue }}</span>
+              </template>
+            </div>
+            <div class="home" :class="{ win: it.sp.winner === it.sp.home }">{{ it.sp.home }}</div>
+            <div v-if="adminMode" class="sp-entry">
+              <input type="number" min="0" v-model.number="it.sp.res.hs">
+              <span class="sep">–</span>
+              <input type="number" min="0" v-model.number="it.sp.res.as">
+            </div>
+            <div v-else class="score-pill" :class="{ vs: !isPlayed(it.sp.res) }">
+              <template v-if="isPlayed(it.sp.res)">{{ it.sp.res.hs }} – {{ it.sp.res.as }}</template>
+              <template v-else>vs</template>
+            </div>
+            <div class="away" :class="{ win: it.sp.winner === it.sp.away }">{{ it.sp.away }}</div>
           </div>
-          <div class="home" :class="{ win: sp.winner === sp.home }">{{ sp.home }}</div>
-          <div v-if="adminMode" class="sp-entry">
-            <input type="number" min="0" v-model.number="sp.res.hs">
-            <span class="sep">–</span>
-            <input type="number" min="0" v-model.number="sp.res.as">
-          </div>
-          <div v-else class="score-pill" :class="{ vs: !isPlayed(sp.res) }">
-            <template v-if="isPlayed(sp.res)">{{ sp.res.hs }} – {{ sp.res.as }}</template>
-            <template v-else>vs</template>
-          </div>
-          <div class="away" :class="{ win: sp.winner === sp.away }">{{ sp.away }}</div>
-        </div>
+        </template>
       </div>
     </div>
 

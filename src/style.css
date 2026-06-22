@@ -165,6 +165,7 @@ td.pts{font-weight:800;color:var(--orange);font-family:'Azeret Mono',monospace}
   padding:12px 16px;border-radius:12px;background:#f5f7fb;border:1px solid var(--card-line);transition:.12s;
 }
 .smatch + .smatch{margin-top:8px}
+.smatch.special-match{border-left:3px solid var(--orange)}
 .smatch:hover{border-color:#c7d2e6;background:#eef2f9}
 .smatch.adminrow{grid-template-columns:152px 1fr auto 1fr}
 .smatch-time{grid-area:time;display:flex;flex-direction:column;gap:3px;min-width:0}

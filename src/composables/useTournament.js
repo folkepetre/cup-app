@@ -477,11 +477,25 @@ const tiers = computed(() => {
 
 const gById = (id) => state.groups.find((g) => g.id === id)
 
+// Är gruppen färdigspelad? (alla aktiva matcher + ev. specialmatcher som räknas)
+const groupComplete = (g) => {
+  if (!g) return false
+  const fixturesDone = enabledFixtures(g).every((m) => isPlayed(groupRes(g.id, m.i)))
+  const specialsDone = (state.specialMatches || []).every((sm) => {
+    if (!sm.counts) return true
+    if (sm.hg !== g.id && sm.ag !== g.id) return true
+    return isPlayed(sm.res)
+  })
+  return fixturesDone && specialsDone
+}
+
 // Laget på en viss plats (grupp + placering). null = bye.
+// Innan gruppen är färdigspelad visas placeringsetiketten (t.ex. "1A") istället för ett lag.
 const slotTeam = (slot) => {
   if (!slot) return null
   const g = gById(slot.g)
   if (!g) return null
+  if (!groupComplete(g)) return slotLabel(slot)
   const row = standings(g)[slot.p]
   return row ? row.name : '—'
 }
@@ -497,18 +511,25 @@ function buildBracketRounds (seedMatches, koTier, tierId) {
     const matchCount = B / 2 ** (r + 1)
     const round = []
     for (let m = 0; m < matchCount; m++) {
-      let home, away
+      let home, away, homeTbd = false, awayTbd = false
       if (r === 0) {
-        home = slotTeam(seedMatches[m].home)
-        away = slotTeam(seedMatches[m].away)
+        const sh = seedMatches[m].home; const sa = seedMatches[m].away
+        home = slotTeam(sh)
+        away = slotTeam(sa)
+        homeTbd = sh ? !groupComplete(gById(sh.g)) : false
+        awayTbd = sa ? !groupComplete(gById(sa.g)) : false
       } else {
         home = prevWinners[2 * m]
         away = prevWinners[2 * m + 1]
+        homeTbd = home === null
+        awayTbd = away === null
       }
       const res = (koTier.rounds[r] && koTier.rounds[r][m]) || blank()
-      const isBye = r === 0 && (home === null || away === null)
-      const winner = isBye ? (home ?? away) : resultWinner(res, { home, away })
-      round.push({ home, away, res, isBye, winner, timeKey: `${tierId}-R${r}-${m}` })
+      // Bye = en plats är tom i lottningen (slot === null), inte en oavgjord placering
+      const isBye = r === 0 && (seedMatches[m].home === null || seedMatches[m].away === null)
+      // Vinnare räknas bara när lagen är klara (inte placeringsetiketter)
+      const winner = isBye ? (home ?? away) : (homeTbd || awayTbd ? null : resultWinner(res, { home, away }))
+      round.push({ home, away, res, isBye, winner, homeTbd, awayTbd, timeKey: `${tierId}-R${r}-${m}` })
     }
     rounds.push(round)
     prevWinners = round.map((x) => x.winner)
