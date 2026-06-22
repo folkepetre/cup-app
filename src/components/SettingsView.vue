@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useTournament } from '../composables/useTournament'
 
-const { state, applyFormat, resetAll, confirmDialog, alertDialog } = useTournament()
+const { state, applyFormat, resetAll, confirmDialog, alertDialog, tiers, slotKey, tierSlotOptions, setSeedSlot, resetTierSeeding, seedingHasDuplicates } = useTournament()
 
 // Format-utkast (tillämpas först när man trycker "Bygg om format")
 const draftCounts = ref(state.groups.map((g) => g.teams.length))
@@ -151,6 +151,38 @@ const buildFormat = async () => {
         <button class="btn solid" :disabled="!dirty || warnings.length" @click="buildFormat">Bygg om format</button>
         <button class="btn ghost" v-if="dirty" @click="resetDraft">Ångra ändringar</button>
         <span class="hint" v-if="dirty">Ändringar tillämpas först när du bygger om (nollställer resultat).</span>
+      </div>
+    </div>
+
+    <!-- Slutspelsmöten (lottning) -->
+    <div class="card" style="margin-top:18px">
+      <h2>Slutspelsmöten</h2>
+      <p class="hint" style="margin-top:0">
+        Bestäm vilka placeringar som möts i första omgången. <strong>1A</strong> = etta i grupp A,
+        <strong>2B</strong> = tvåa i grupp B osv. Ändringar gäller direkt (nollställer inte resultat).
+      </p>
+
+      <div class="seed-tier" v-for="t in tiers" :key="t.id">
+        <div class="seed-tier-head">
+          <span class="tag">{{ t.name }}</span>
+          <button class="btn ghost" @click="resetTierSeeding(t)">Återställ standard</button>
+        </div>
+        <div class="seed-warn" v-if="seedingHasDuplicates(t.id)">
+          ⚠️ Samma placering används flera gånger – kontrollera mötena.
+        </div>
+        <div class="seed-list">
+          <div class="seed-match" v-for="(mt, mi) in state.seeding[t.id]" :key="mi">
+            <select class="seed-select" :value="slotKey(mt.home)" @change="setSeedSlot(t.id, mi, 'home', $event.target.value)">
+              <option v-for="o in tierSlotOptions(t)" :key="o.key" :value="o.key">{{ o.label }}</option>
+              <option value="BYE">Bye</option>
+            </select>
+            <span class="seed-vs">mot</span>
+            <select class="seed-select" :value="slotKey(mt.away)" @change="setSeedSlot(t.id, mi, 'away', $event.target.value)">
+              <option v-for="o in tierSlotOptions(t)" :key="o.key" :value="o.key">{{ o.label }}</option>
+              <option value="BYE">Bye</option>
+            </select>
+          </div>
+        </div>
       </div>
     </div>
 

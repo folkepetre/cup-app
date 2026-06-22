@@ -74,6 +74,51 @@ function cleanBands (bands, fallback) {
   return [Math.max(1, (fallback || 2) | 0)]
 }
 
+// Alla "platser" i ett slutspel: placering lo..hi × varje grupp (placeringsmajor)
+// En plats = { g: gruppId, p: placering (0-indexerad) }
+function tierSlots (lo, hi, groups) {
+  const slots = []
+  for (let p = lo; p <= hi; p++) {
+    for (const g of groups) slots.push({ g: g.id, p })
+  }
+  return slots
+}
+
+// Standardlottning för ett slutspel: par av platser per förstaomgångsmatch
+function defaultSeedingForTier (lo, hi, groups) {
+  const slots = tierSlots(lo, hi, groups)
+  const Q = slots.length
+  const matches = []
+  if (Q < 2) return matches
+  const B = nextPow2(Q)
+  const order = seedOrder(B)
+  for (let m = 0; m < B / 2; m++) {
+    const sh = order[2 * m]; const sa = order[2 * m + 1]
+    matches.push({
+      home: sh <= Q ? slots[sh - 1] : null,
+      away: sa <= Q ? slots[sa - 1] : null
+    })
+  }
+  return matches
+}
+
+function buildAllSeeding (bands, groups) {
+  const seeding = {}
+  let lo = 0
+  bands.forEach((size, i) => {
+    seeding[groupLetter(i)] = defaultSeedingForTier(lo, lo + size - 1, groups)
+    lo += size
+  })
+  return seeding
+}
+
+// Stämmer lottningens struktur med förväntat antal förstaomgångsmatcher?
+function seedingMatches (seed, Q) {
+  if (!Array.isArray(seed)) return false
+  if (Q < 2) return seed.length === 0
+  return seed.length === nextPow2(Q) / 2
+}
+
 function structureMatches (ko, Q) {
   if (!ko || !Array.isArray(ko.rounds)) return false
   const exp = expectedRoundSizes(Q)
@@ -133,7 +178,8 @@ export function defaultState () {
     groups,
     groupResults: defaultGroupResults(groups),
     matchTimes: defaultMatchTimes(groups, playoffBands),
-    ko: buildAllKo(playoffBands, groups.length)
+    ko: buildAllKo(playoffBands, groups.length),
+    seeding: buildAllSeeding(playoffBands, groups)
   }
 }
 
@@ -156,6 +202,16 @@ function migrate (s) {
     }
     if (!ko[id].third) ko[id].third = blank()
   })
+  // Lottning per tier: behåll om strukturen stämmer, annars standard
+  const seeding = {}
+  let lo = 0
+  bands.forEach((size, i) => {
+    const id = groupLetter(i)
+    const Q = size * groups.length
+    const existing = s.seeding && s.seeding[id]
+    seeding[id] = seedingMatches(existing, Q) ? existing : defaultSeedingForTier(lo, lo + size - 1, groups)
+    lo += size
+  })
   return {
     name: s.name ?? d.name,
     adminPin: s.adminPin ?? d.adminPin,
@@ -164,7 +220,8 @@ function migrate (s) {
     groups,
     groupResults: Object.assign(defaultGroupResults(groups), s.groupResults || {}),
     matchTimes: Object.assign(defaultMatchTimes(groups, bands), s.matchTimes || {}),
-    ko
+    ko,
+    seeding
   }
 }
 
@@ -317,6 +374,24 @@ const resultWinner = (res, m) => {
 const needsPen = (res) => isPlayed(res) && res.hs === res.as
 const setPen = (res, side) => { res.pen = side }
 
+// Inbördes möte: minitabell mellan en uppsättning lag som står lika
+function headToHead (names, g) {
+  const set = new Set(names)
+  const mini = {}
+  names.forEach((n) => { mini[n] = { pts: 0, gd: 0, gf: 0 } })
+  fixtures(g).forEach((m, i) => {
+    if (!set.has(m.h) || !set.has(m.a)) return
+    const r = groupRes(g.id, i)
+    if (!isPlayed(r)) return
+    const H = mini[m.h]; const A = mini[m.a]
+    H.gf += r.hs; H.gd += r.hs - r.as; A.gf += r.as; A.gd += r.as - r.hs
+    if (r.hs > r.as) H.pts += 3
+    else if (r.as > r.hs) A.pts += 3
+    else { H.pts++; A.pts++ }
+  })
+  return mini
+}
+
 const standings = (g) => {
   const stats = {}
   g.teams.forEach((t) => { stats[t] = { name: t, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, gd: 0, pts: 0 } })
@@ -328,9 +403,29 @@ const standings = (g) => {
     H.p++; A.p++; H.gf += r.hs; H.ga += r.as; A.gf += r.as; A.ga += r.hs
     if (r.hs > r.as) { H.w++; A.l++; H.pts += 3 } else if (r.as > r.hs) { A.w++; H.l++; A.pts += 3 } else { H.d++; A.d++; H.pts++; A.pts++ }
   })
-  return Object.values(stats)
+  const arr = Object.values(stats)
     .map((s) => { s.gd = s.gf - s.ga; return s })
-    .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.name.localeCompare(b.name, 'sv'))
+    // 1. poäng  2. målskillnad  3. gjorda mål
+    .sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || 0)
+
+  // 4. inbördes möte mellan lag som fortfarande står lika (pts/gd/gf identiska)
+  const result = []
+  let i = 0
+  while (i < arr.length) {
+    let j = i + 1
+    while (j < arr.length && arr[j].pts === arr[i].pts && arr[j].gd === arr[i].gd && arr[j].gf === arr[i].gf) j++
+    const block = arr.slice(i, j)
+    if (block.length > 1) {
+      const mini = headToHead(block.map((t) => t.name), g)
+      block.sort((a, b) => {
+        const ma = mini[a.name]; const mb = mini[b.name]
+        return mb.pts - ma.pts || mb.gd - ma.gd || mb.gf - ma.gf || a.name.localeCompare(b.name, 'sv')
+      })
+    }
+    for (const t of block) result.push(t)
+    i = j
+  }
+  return result
 }
 
 // Slutspels-nivåer (tiers) härledda ur banden: t.ex. [2,2] → A (plats 1-2), B (plats 3-4)
@@ -346,31 +441,22 @@ const tiers = computed(() => {
   return out
 })
 
-const byRank = (a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || a.name.localeCompare(b.name, 'sv')
+const gById = (id) => state.groups.find((g) => g.id === id)
 
-// Lag till ett visst slutspel: placeringarna lo..hi i varje grupp, rankade över grupperna
-function tierQualifiers (lo, hi) {
-  const result = []
-  for (let pos = lo; pos <= hi; pos++) {
-    const bucket = []
-    for (const g of state.groups) {
-      const team = standings(g)[pos]
-      bucket.push(team ? { ...team } : { name: '—', pts: -1, gd: 0, gf: 0 })
-    }
-    bucket.sort(byRank)
-    for (const t of bucket) result.push(t.name)
-  }
-  return result
+// Laget på en viss plats (grupp + placering). null = bye.
+const slotTeam = (slot) => {
+  if (!slot) return null
+  const g = gById(slot.g)
+  if (!g) return null
+  const row = standings(g)[slot.p]
+  return row ? row.name : '—'
 }
 
-// Bygg ett slutspelsträd (ronder) från en lag-lista + sparade resultat
-function buildBracketRounds (qs, koTier, tierId) {
+// Bygg ett slutspelsträd (ronder) från lottningen (förstaomgångens platser) + sparade resultat
+function buildBracketRounds (seedMatches, koTier, tierId) {
   const rounds = []
-  const Q = qs.length
-  if (Q < 2) return rounds
-  const B = nextPow2(Q)
-  const order = seedOrder(B)
-  const seedTeam = (seedNum) => (seedNum > Q ? null : qs[seedNum - 1])
+  if (!Array.isArray(seedMatches) || !seedMatches.length) return rounds
+  const B = seedMatches.length * 2
   const numRounds = Math.log2(B)
   let prevWinners = null
   for (let r = 0; r < numRounds; r++) {
@@ -379,8 +465,8 @@ function buildBracketRounds (qs, koTier, tierId) {
     for (let m = 0; m < matchCount; m++) {
       let home, away
       if (r === 0) {
-        home = seedTeam(order[2 * m])
-        away = seedTeam(order[2 * m + 1])
+        home = slotTeam(seedMatches[m].home)
+        away = slotTeam(seedMatches[m].away)
       } else {
         home = prevWinners[2 * m]
         away = prevWinners[2 * m + 1]
@@ -398,9 +484,9 @@ function buildBracketRounds (qs, koTier, tierId) {
 
 // Alla slutspel (ett per tier), med träd, mästare och bronsmatch
 const brackets = computed(() => tiers.value.map((t) => {
-  const qs = tierQualifiers(t.lo, t.hi)
+  const seedMatches = (state.seeding && state.seeding[t.id]) || defaultSeedingForTier(t.lo, t.hi, state.groups)
   const koTier = (state.ko && state.ko[t.id]) || { rounds: [], third: blank() }
-  const rounds = buildBracketRounds(qs, koTier, t.id)
+  const rounds = buildBracketRounds(seedMatches, koTier, t.id)
   const champion = rounds.length ? rounds[rounds.length - 1][0].winner : null
   let third = null
   if (rounds.length >= 2) {
@@ -436,11 +522,46 @@ const scheduleKnockout = computed(() => brackets.value.map((bt) => {
   return { id: bt.id, tier: bt.name, rounds }
 }).filter((t) => t.rounds.length))
 
+// ---- Slutspelslottning (admin) ----
+// Visningsetiketter & nycklar för en plats, t.ex. { g:'A', p:0 } → "1A"
+const slotLabel = (slot) => (slot ? `${slot.p + 1}${slot.g}` : 'Bye')
+const slotKey = (slot) => (slot ? `${slot.g}:${slot.p}` : 'BYE')
+
+// Alla valbara platser i ett slutspel (för rullgardinerna i Inställningar)
+const tierSlotOptions = (tier) => tierSlots(tier.lo, tier.hi, state.groups)
+  .map((s) => ({ key: slotKey(s), label: slotLabel(s) }))
+
+function setSeedSlot (tierId, matchIndex, side, key) {
+  if (!state.seeding[tierId] || !state.seeding[tierId][matchIndex]) return
+  const slot = key === 'BYE' ? null : { g: key.split(':')[0], p: Number(key.split(':')[1]) }
+  state.seeding[tierId][matchIndex][side] = slot
+}
+
+function resetTierSeeding (tier) {
+  state.seeding[tier.id] = defaultSeedingForTier(tier.lo, tier.hi, state.groups)
+}
+
+// Varning om samma plats används flera gånger i ett slutspel
+function seedingHasDuplicates (tierId) {
+  const matches = state.seeding[tierId] || []
+  const seen = {}
+  for (const mt of matches) {
+    for (const s of [mt.home, mt.away]) {
+      if (!s) continue
+      const k = slotKey(s)
+      if (seen[k]) return true
+      seen[k] = true
+    }
+  }
+  return false
+}
+
 // ---- Format-ändring (admin) ----
 function rebuildStructure () {
   state.groupResults = defaultGroupResults(state.groups)
   state.matchTimes = defaultMatchTimes(state.groups, state.playoffBands)
   state.ko = buildAllKo(state.playoffBands, state.groups.length)
+  state.seeding = buildAllSeeding(state.playoffBands, state.groups)
 }
 
 // counts: array med antal lag per grupp; bands: array med antal placeringar per slutspel
@@ -496,6 +617,7 @@ export function useTournament () {
     standings, tiers,
     brackets, scheduleKnockout, koRoundLabel,
     applyFormat,
+    slotLabel, slotKey, tierSlotOptions, setSeedSlot, resetTierSeeding, seedingHasDuplicates,
     exportData, importData, resetAll
   }
 }
