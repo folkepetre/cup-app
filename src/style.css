@@ -122,12 +122,12 @@ td.pts{font-weight:800;color:var(--orange);font-family:'Azeret Mono',monospace}
 /* ---------- Fixtures / match rows ---------- */
 .matches{margin-top:16px;display:flex;flex-direction:column;gap:7px}
 .match{
-  display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;
-  background:#f5f7fb;border:1px solid var(--card-line);border-radius:10px;padding:8px 12px;
+  display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;min-height:56px;
+  background:#f5f7fb;border:1px solid var(--card-line);border-radius:10px;padding:8px 14px;
 }
 .match .home{text-align:right}
 .match .away{text-align:left}
-.match .mteam{font-weight:600;font-size:14px;color:var(--ink)}
+.match .mteam{font-weight:600;font-size:14px;line-height:1.2;color:var(--ink);overflow-wrap:break-word;word-break:normal}
 .match .mteam.tbd{color:var(--muted2);font-weight:500;font-style:italic}
 .score{display:flex;align-items:center;gap:6px}
 .score input{
