@@ -182,7 +182,8 @@ export function defaultState () {
     seeding: buildAllSeeding(playoffBands, groups),
     disabledFixtures: {}, // { gid: [fixtureIndex, ...] } matcher som inte spelas
     specialMatches: [], // extra/övergripande matcher, se nedan
-    bronzeOff: {} // { tierId: true } → ingen bronsmatch i det slutspelet
+    bronzeOff: {}, // { tierId: true } → ingen bronsmatch i det slutspelet
+    pointAdjust: {} // { "gid:teamIndex": ±poäng } start-/bonuspoäng
   }
 }
 
@@ -227,7 +228,8 @@ function migrate (s) {
     seeding,
     disabledFixtures: (s.disabledFixtures && typeof s.disabledFixtures === 'object') ? s.disabledFixtures : {},
     specialMatches: Array.isArray(s.specialMatches) ? s.specialMatches : [],
-    bronzeOff: (s.bronzeOff && typeof s.bronzeOff === 'object') ? s.bronzeOff : {}
+    bronzeOff: (s.bronzeOff && typeof s.bronzeOff === 'object') ? s.bronzeOff : {},
+    pointAdjust: (s.pointAdjust && typeof s.pointAdjust === 'object') ? s.pointAdjust : {}
   }
 }
 
@@ -436,6 +438,11 @@ const standings = (g) => {
     if (!sm.counts || !isPlayed(sm.res)) return
     if (sm.hg === g.id) credit(g.teams[sm.ht], sm.res.hs, sm.res.as)
     if (sm.ag === g.id) credit(g.teams[sm.at], sm.res.as, sm.res.hs)
+  })
+  // Start-/bonuspoäng (t.ex. +1 till lag som spelar en match mindre)
+  g.teams.forEach((name, t) => {
+    const adj = state.pointAdjust && state.pointAdjust[`${g.id}:${t}`]
+    if (adj && stats[name]) stats[name].pts += adj
   })
   const arr = Object.values(stats)
     .map((s) => { s.gd = s.gf - s.ga; return s })
@@ -647,6 +654,19 @@ const toggleBronze = (tierId) => {
   else state.bronzeOff[tierId] = true
 }
 
+// Start-/bonuspoäng per lag
+const pointAdjustVal = (gid, t) => (state.pointAdjust && state.pointAdjust[`${gid}:${t}`]) || 0
+const setPointAdjust = (gid, t, val) => {
+  if (!state.pointAdjust) state.pointAdjust = {}
+  const n = Number(val) || 0
+  if (n === 0) delete state.pointAdjust[`${gid}:${t}`]
+  else state.pointAdjust[`${gid}:${t}`] = n
+}
+// Lag i en grupp som har en justering (för notis under tabellen)
+const groupAdjustments = (g) => g.teams
+  .map((name, t) => ({ name, adj: pointAdjustVal(g.id, t) }))
+  .filter((x) => x.adj !== 0)
+
 // ---- Format-ändring (admin) ----
 function rebuildStructure () {
   state.groupResults = defaultGroupResults(state.groups)
@@ -655,6 +675,7 @@ function rebuildStructure () {
   state.seeding = buildAllSeeding(state.playoffBands, state.groups)
   state.disabledFixtures = {} // fixture-index ändras med gruppstorlek → nollställ
   state.specialMatches = [] // lagreferenser kan bli ogiltiga → nollställ
+  state.pointAdjust = {} // lagreferenser kan bli ogiltiga → nollställ
 }
 
 // counts: array med antal lag per grupp; bands: array med antal placeringar per slutspel
@@ -714,6 +735,7 @@ export function useTournament () {
     fixtureDisabled, toggleFixture, enabledFixtures,
     specialList, addSpecialMatch, removeSpecialMatch, setSpecialTeam, specialTeamName, teamRefKey, allTeamOptions,
     bronzeEnabled, toggleBronze,
+    pointAdjustVal, setPointAdjust, groupAdjustments,
     exportData, importData, resetAll
   }
 }

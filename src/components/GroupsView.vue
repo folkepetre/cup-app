@@ -1,7 +1,7 @@
 <script setup>
 import { useTournament } from '../composables/useTournament'
 
-const { state, standings, enabledFixtures, groupRes, resultWinner, adminMode, matchTime } = useTournament()
+const { state, standings, enabledFixtures, groupRes, resultWinner, adminMode, matchTime, groupAdjustments } = useTournament()
 
 // Matcher i tidsordning (matcher utan satt tid hamnar sist)
 const entryFixtures = (g) => enabledFixtures(g)
@@ -46,6 +46,9 @@ const entryFixtures = (g) => enabledFixtures(g)
           </tbody>
         </table>
         <div class="qual-note"><span class="dot"></span> Topp {{ state.advancePerGroup }} går till slutspel</div>
+        <div class="adj-note" v-for="a in groupAdjustments(g)" :key="a.name">
+          ⚑ {{ a.name }}: {{ a.adj > 0 ? '+' : '' }}{{ a.adj }} startpoäng
+        </div>
 
         <div class="matches" v-if="adminMode">
           <div class="match" v-for="m in entryFixtures(g)" :key="m.i">

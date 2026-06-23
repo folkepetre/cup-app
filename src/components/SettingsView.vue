@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useTournament } from '../composables/useTournament'
 
-const { state, applyFormat, resetAll, confirmDialog, alertDialog, tiers, slotKey, tierSlotOptions, setSeedSlot, resetTierSeeding, seedingHasDuplicates, fixtures, fixtureDisabled, toggleFixture, specialList, addSpecialMatch, removeSpecialMatch, setSpecialTeam, teamRefKey, allTeamOptions, bronzeEnabled, toggleBronze } = useTournament()
+const { state, applyFormat, resetAll, confirmDialog, alertDialog, tiers, slotKey, tierSlotOptions, setSeedSlot, resetTierSeeding, seedingHasDuplicates, fixtures, fixtureDisabled, toggleFixture, specialList, addSpecialMatch, removeSpecialMatch, setSpecialTeam, teamRefKey, allTeamOptions, bronzeEnabled, toggleBronze, pointAdjustVal, setPointAdjust } = useTournament()
 
 // Format-utkast (tillämpas först när man trycker "Bygg om format")
 const draftCounts = ref(state.groups.map((g) => g.teams.length))
@@ -227,6 +227,25 @@ const buildFormat = async () => {
         </div>
       </div>
       <button class="fmt-add" style="margin-top:12px;max-width:220px" @click="addSpecialMatch">+ Lägg till specialmatch</button>
+    </div>
+
+    <!-- Start-/bonuspoäng -->
+    <div class="card" style="margin-top:18px">
+      <h2>Start-/bonuspoäng</h2>
+      <p class="hint" style="margin-top:0">
+        Ge ett lag extra (eller minus) poäng från start, t.ex. +1 till ett lag som spelar en match mindre.
+        Lämna 0 för lag utan justering.
+      </p>
+      <div class="fixt-groups">
+        <div class="fixt-group" v-for="g in state.groups" :key="g.id">
+          <div class="fixt-head"><span class="tag">Grupp {{ g.id }}</span></div>
+          <div class="adj-row" v-for="(team, ti) in g.teams" :key="ti">
+            <span class="adj-team">{{ team }}</span>
+            <input class="adj-input" type="number" :value="pointAdjustVal(g.id, ti)"
+              @change="setPointAdjust(g.id, ti, $event.target.value)">
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Lagnamn -->
